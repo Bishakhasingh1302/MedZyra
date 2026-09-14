@@ -41,7 +41,14 @@
           </div>
           <div id="otpSection" class="hidden">
             <label>OTP
-              <input id="loginOtp" type="text" placeholder="Enter 6-digit OTP" maxlength="6" inputmode="numeric">
+              <input
+    type="text"
+    id="loginOtp"
+    placeholder="Enter OTP"
+    maxlength="8"
+    inputmode="numeric"
+    autocomplete="one-time-code"
+/>
             </label>
           </div>
           <button class="primary-btn hidden" id="loginSubmitBtn" type="submit">Login with OTP <span>→</span></button>
