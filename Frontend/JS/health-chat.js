@@ -1,11 +1,23 @@
 /* =========================================================
-   MEDZYRA AI HEALTH CHAT
-   ========================================================= */
+   MEDZYRA - AI HEALTH INTERVIEW
+========================================================= */
 
 
-/* ================= STATE ================= */
+/* =========================================================
+   API
+========================================================= */
 
-let currentQuestion = 0;
+const API_URL =
+    "http://localhost:5000/api";
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
+let interviewId = null;
+
+let currentQuestion = null;
 
 let answeredQuestions = 0;
 
@@ -13,490 +25,12 @@ let checkInStarted = false;
 
 let voiceActive = false;
 
-let redFlagDetected = false;
-
 let selectedLanguage = "en";
 
 
-/* ================= QUESTIONS ================= */
-
-const questions = {
-
-    en: [
-
-        {
-            id: "concern",
-
-            text:
-                "What is your main health concern today?",
-
-            type: "options",
-
-            options: [
-                "Pain",
-                "Fever",
-                "Breathing problem",
-                "Stomach problem",
-                "Other"
-            ]
-        },
-
-        {
-            id: "duration",
-
-            text:
-                "How long have you been experiencing this?",
-
-            type: "options",
-
-            options: [
-                "Less than 24 hours",
-                "2–7 days",
-                "1–4 weeks",
-                "More than a month"
-            ]
-        },
-
-        {
-            id: "severity",
-
-            text:
-                "How would you describe the severity of your symptoms?",
-
-            type: "options",
-
-            options: [
-                "Mild",
-                "Moderate",
-                "Severe"
-            ]
-        },
-
-        {
-            id: "location",
-
-            text:
-                "Where exactly are you experiencing the problem?",
-
-            type: "options",
-
-            options: [
-                "Upper body",
-                "Lower body",
-                "Left side",
-                "Right side",
-                "All over"
-            ]
-        },
-
-        {
-            id: "breathing",
-
-            text:
-                "Are you currently having difficulty breathing?",
-
-            type: "options",
-
-            options: [
-                "No",
-                "A little",
-                "Yes, severe"
-            ]
-        },
-
-        {
-            id: "chest",
-
-            text:
-                "Are you experiencing severe or unusual chest pain?",
-
-            type: "options",
-
-            options: [
-                "No",
-                "Mild discomfort",
-                "Yes"
-            ]
-        },
-
-        {
-            id: "symptoms",
-
-            text:
-                "Is there anything else you would like your doctor to know?",
-
-            type: "text"
-        },
-
-        {
-            id: "final",
-
-            text:
-                "Thank you. Your health check-in is complete.",
-
-            type: "final"
-        }
-
-    ],
-
-
-    hi: [
-
-        {
-            id: "concern",
-
-            text:
-                "आज आपकी मुख्य स्वास्थ्य समस्या क्या है?",
-
-            type: "options",
-
-            options: [
-                "दर्द",
-                "बुखार",
-                "सांस लेने में समस्या",
-                "पेट की समस्या",
-                "अन्य"
-            ]
-        },
-
-        {
-            id: "duration",
-
-            text:
-                "आपको यह समस्या कब से हो रही है?",
-
-            type: "options",
-
-            options: [
-                "24 घंटे से कम",
-                "2–7 दिन",
-                "1–4 सप्ताह",
-                "एक महीने से अधिक"
-            ]
-        },
-
-        {
-            id: "severity",
-
-            text:
-                "आप अपने लक्षणों की गंभीरता को कैसे बताएंगे?",
-
-            type: "options",
-
-            options: [
-                "हल्का",
-                "मध्यम",
-                "गंभीर"
-            ]
-        },
-
-        {
-            id: "location",
-
-            text:
-                "आपको यह समस्या शरीर के किस हिस्से में महसूस हो रही है?",
-
-            type: "options",
-
-            options: [
-                "ऊपरी शरीर",
-                "निचला शरीर",
-                "बाईं ओर",
-                "दाईं ओर",
-                "पूरे शरीर में"
-            ]
-        },
-
-        {
-            id: "breathing",
-
-            text:
-                "क्या आपको अभी सांस लेने में कठिनाई हो रही है?",
-
-            type: "options",
-
-            options: [
-                "नहीं",
-                "थोड़ी",
-                "हाँ, बहुत ज्यादा"
-            ]
-        },
-
-        {
-            id: "chest",
-
-            text:
-                "क्या आपको तेज या असामान्य सीने में दर्द हो रहा है?",
-
-            type: "options",
-
-            options: [
-                "नहीं",
-                "हल्की परेशानी",
-                "हाँ"
-            ]
-        },
-
-        {
-            id: "symptoms",
-
-            text:
-                "क्या आप डॉक्टर को कुछ और बताना चाहते हैं?",
-
-            type: "text"
-        },
-
-        {
-            id: "final",
-
-            text:
-                "धन्यवाद। आपका स्वास्थ्य चेक-इन पूरा हो गया है।",
-
-            type: "final"
-        }
-
-    ],
-
-
-    bn: [
-
-        {
-            id: "concern",
-
-            text:
-                "আজ আপনার প্রধান স্বাস্থ্য সমস্যা কী?",
-
-            type: "options",
-
-            options: [
-                "ব্যথা",
-                "জ্বর",
-                "শ্বাসকষ্ট",
-                "পেটের সমস্যা",
-                "অন্যান্য"
-            ]
-        },
-
-        {
-            id: "duration",
-
-            text:
-                "এই সমস্যা কতদিন ধরে হচ্ছে?",
-
-            type: "options",
-
-            options: [
-                "২৪ ঘণ্টার কম",
-                "২–৭ দিন",
-                "১–৪ সপ্তাহ",
-                "এক মাসের বেশি"
-            ]
-        },
-
-        {
-            id: "severity",
-
-            text:
-                "আপনার উপসর্গ কতটা গুরুতর?",
-
-            type: "options",
-
-            options: [
-                "হালকা",
-                "মাঝারি",
-                "গুরুতর"
-            ]
-        },
-
-        {
-            id: "location",
-
-            text:
-                "শরীরের কোথায় সমস্যাটি অনুভব করছেন?",
-
-            type: "options",
-
-            options: [
-                "উপরের অংশ",
-                "নিচের অংশ",
-                "বাম দিকে",
-                "ডান দিকে",
-                "সারা শরীরে"
-            ]
-        },
-
-        {
-            id: "breathing",
-
-            text:
-                "আপনার কি এখন শ্বাস নিতে সমস্যা হচ্ছে?",
-
-            type: "options",
-
-            options: [
-                "না",
-                "সামান্য",
-                "হ্যাঁ, গুরুতর"
-            ]
-        },
-
-        {
-            id: "chest",
-
-            text:
-                "আপনার কি তীব্র বা অস্বাভাবিক বুকে ব্যথা হচ্ছে?",
-
-            type: "options",
-
-            options: [
-                "না",
-                "হালকা অস্বস্তি",
-                "হ্যাঁ"
-            ]
-        },
-
-        {
-            id: "symptoms",
-
-            text:
-                "ডাক্তারকে জানানোর মতো আর কিছু আছে কি?",
-
-            type: "text"
-        },
-
-        {
-            id: "final",
-
-            text:
-                "ধন্যবাদ। আপনার স্বাস্থ্য চেক-ইন সম্পূর্ণ হয়েছে।",
-
-            type: "final"
-        }
-
-    ],
-
-
-    ne: [
-
-        {
-            id: "concern",
-
-            text:
-                "आज तपाईंको मुख्य स्वास्थ्य समस्या के हो?",
-
-            type: "options",
-
-            options: [
-                "दुखाइ",
-                "ज्वरो",
-                "सास फेर्न समस्या",
-                "पेटको समस्या",
-                "अन्य"
-            ]
-        },
-
-        {
-            id: "duration",
-
-            text:
-                "यो समस्या कति समयदेखि भइरहेको छ?",
-
-            type: "options",
-
-            options: [
-                "२४ घण्टाभन्दा कम",
-                "२–७ दिन",
-                "१–४ हप्ता",
-                "एक महिनाभन्दा बढी"
-            ]
-        },
-
-        {
-            id: "severity",
-
-            text:
-                "तपाईंको लक्षण कति गम्भीर छन्?",
-
-            type: "options",
-
-            options: [
-                "हल्का",
-                "मध्यम",
-                "गम्भीर"
-            ]
-        },
-
-        {
-            id: "location",
-
-            text:
-                "समस्या शरीरको कुन भागमा महसुस भइरहेको छ?",
-
-            type: "options",
-
-            options: [
-                "माथिल्लो भाग",
-                "तल्लो भाग",
-                "बायाँ भाग",
-                "दायाँ भाग",
-                "सबैतिर"
-            ]
-        },
-
-        {
-            id: "breathing",
-
-            text:
-                "के तपाईंलाई अहिले सास फेर्न गाह्रो भइरहेको छ?",
-
-            type: "options",
-
-            options: [
-                "छैन",
-                "अलिकति",
-                "हो, धेरै"
-            ]
-        },
-
-        {
-            id: "chest",
-
-            text:
-                "के तपाईंलाई गम्भीर वा असामान्य छाती दुखिरहेको छ?",
-
-            type: "options",
-
-            options: [
-                "छैन",
-                "हल्का असहजता",
-                "हो"
-            ]
-        },
-
-        {
-            id: "symptoms",
-
-            text:
-                "डाक्टरलाई भन्न चाहनुभएको अरू केही छ?",
-
-            type: "text"
-        },
-
-        {
-            id: "final",
-
-            text:
-                "धन्यवाद। तपाईंको स्वास्थ्य चेक-इन पूरा भयो।",
-
-            type: "final"
-        }
-
-    ]
-
-};
-
-
-/* ================= DOM ================= */
+/* =========================================================
+   DOM
+========================================================= */
 
 const messages =
     document.getElementById("messages");
@@ -510,11 +44,14 @@ const sendButton =
 const voiceButton =
     document.getElementById("voiceButton");
 
-const typingIndicator =
-    document.getElementById("typingIndicator");
+const startChatBtn =
+    document.getElementById("startChatBtn");
 
 const startRow =
     document.getElementById("startRow");
+
+const typingIndicator =
+    document.getElementById("typingIndicator");
 
 const answeredCount =
     document.getElementById("answeredCount");
@@ -528,54 +65,188 @@ const progressFill =
 const stepText =
     document.getElementById("stepText");
 
+const patientName =
+    document.getElementById("patientName");
+
 const languageSelect =
     document.getElementById("languageSelect");
 
 
-/* ================= START ================= */
+/* =========================================================
+   RED FLAG
+========================================================= */
 
-function startCheckIn() {
+const redFlagOverlay =
+    document.getElementById("redFlagOverlay");
 
-    checkInStarted = true;
+const redFlagMessage =
+    document.getElementById("redFlagMessage");
 
-    startRow.style.display = "none";
 
-    messageInput.disabled = false;
+/* =========================================================
+   AUTH TOKEN
+========================================================= */
 
-    sendButton.disabled = false;
+function getToken() {
 
-    currentQuestion = 0;
-
-    answeredQuestions = 0;
-
-    askNextQuestion();
+    return (
+        localStorage.getItem("medzyra_access_token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("authToken") ||
+        localStorage.getItem("accessToken")
+    );
 }
 
 
-/* ================= ASK QUESTION ================= */
+/* =========================================================
+   API REQUEST
+========================================================= */
 
-function askNextQuestion() {
+async function apiRequest(
+    endpoint,
+    options = {}
+) {
 
-    const list = questions[selectedLanguage];
+    const token =
+        getToken();
 
-    const question = list[currentQuestion];
 
-    if (!question) {
+    if (!token) {
 
-        finishCheckIn();
+        throw new Error(
+            "Authentication token not found. Please login again."
+        );
+    }
 
+
+    const response =
+        await fetch(
+            `${API_URL}${endpoint}`,
+            {
+                ...options,
+
+                headers: {
+
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        `Bearer ${token}`,
+
+                    ...(options.headers || {})
+                }
+            }
+        );
+
+
+    const data =
+        await response.json();
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            data.message ||
+            "Request failed"
+        );
+    }
+
+
+    return data;
+}
+
+
+/* =========================================================
+   START CHECK-IN
+========================================================= */
+
+async function startCheckIn() {
+
+    if (checkInStarted) {
         return;
     }
 
 
-    if (question.type === "final") {
+    checkInStarted = true;
 
-        addBotMessage(question.text);
 
-        finishCheckIn();
+    startChatBtn.disabled = true;
 
-        return;
+
+    showTyping();
+
+
+    try {
+
+        const result =
+            await apiRequest(
+                "/health-interview/start",
+                {
+                    method: "POST",
+
+                    body: JSON.stringify({
+                        language:
+                            selectedLanguage
+                    })
+                }
+            );
+
+
+        hideTyping();
+
+
+        interviewId =
+            result.data.interviewId;
+
+
+        currentQuestion =
+            result.data.question;
+
+
+        answeredQuestions = 0;
+
+
+        if (startRow) {
+            startRow.style.display =
+                "none";
+        }
+
+
+        displayQuestion(
+            currentQuestion
+        );
+
+
+        updateProgress();
+
+
+    } catch (error) {
+
+        hideTyping();
+
+        checkInStarted = false;
+
+        startChatBtn.disabled = false;
+
+
+        addBotMessage(
+            "Sorry, I couldn't start the health interview. Please try again."
+        );
+
+
+        console.error(error);
     }
+}
+
+
+/* =========================================================
+   DISPLAY QUESTION
+========================================================= */
+
+function displayQuestion(question) {
+
+    currentQuestion =
+        question;
 
 
     showTyping();
@@ -585,404 +256,647 @@ function askNextQuestion() {
 
         hideTyping();
 
+
         addBotMessage(
             question.text,
-            question.options || null
+            question.options || []
         );
 
-    }, 650);
+
+        updateInputState();
+
+    }, 500);
 }
 
 
-/* ================= BOT MESSAGE ================= */
+/* =========================================================
+   BOT MESSAGE
+========================================================= */
 
-function addBotMessage(text, options = null) {
+function addBotMessage(
+    text,
+    options = []
+) {
 
-    const row =
+    const wrapper =
         document.createElement("div");
 
-    row.className =
-        "message-row bot-row";
+
+    wrapper.className =
+        "message bot-message";
 
 
-    let optionsHTML = "";
+    const content =
+        document.createElement("div");
 
 
-    if (options) {
+    content.className =
+        "message-content";
 
-        optionsHTML = `
-            <div class="options">
 
-                ${options.map(option => `
+    content.innerHTML =
+        escapeHTML(text);
 
-                    <button
-                        class="option-button"
-                        onclick="selectOption(this)"
-                        data-value="${escapeHTML(option)}"
-                    >
 
-                        ${escapeHTML(option)}
+    wrapper.appendChild(content);
 
-                    </button>
 
-                `).join("")}
+    /* -----------------------------------------------------
+       OPTIONS
+    ----------------------------------------------------- */
 
-            </div>
-        `;
+    if (
+        Array.isArray(options) &&
+        options.length > 0
+    ) {
+
+        const optionsContainer =
+            document.createElement("div");
+
+
+        optionsContainer.className =
+            "chat-options";
+
+
+        options.forEach(option => {
+
+            const button =
+                document.createElement("button");
+
+
+            button.type =
+                "button";
+
+
+            button.className =
+                "chat-option";
+
+
+            if (
+                typeof option === "string"
+            ) {
+
+                button.textContent =
+                    option;
+
+                button.dataset.value =
+                    option;
+
+            } else {
+
+                button.textContent =
+                    option.label ||
+                    option.text ||
+                    option.value;
+
+                button.dataset.value =
+                    option.value ||
+                    option.label ||
+                    option.text;
+            }
+
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    processAnswer(
+                        button.dataset.value
+                    );
+
+                }
+            );
+
+
+            optionsContainer.appendChild(
+                button
+            );
+
+        });
+
+
+        wrapper.appendChild(
+            optionsContainer
+        );
     }
 
 
-    row.innerHTML = `
+    messages.appendChild(
+        wrapper
+    );
 
-        <div class="bot-avatar">
-
-            <i class="fa-solid fa-sparkles"></i>
-
-        </div>
-
-        <div class="message-content">
-
-            <div class="bot-label">
-                MedZyra AI
-                <span>● Online</span>
-            </div>
-
-            <div class="message bot-message">
-
-                ${escapeHTML(text)}
-
-            </div>
-
-            ${optionsHTML}
-
-        </div>
-
-    `;
-
-
-    messages.appendChild(row);
 
     scrollToBottom();
 }
 
 
-/* ================= USER MESSAGE ================= */
+/* =========================================================
+   USER MESSAGE
+========================================================= */
 
 function addUserMessage(text) {
 
-    const row =
+    const wrapper =
         document.createElement("div");
 
-    row.className =
-        "user-row";
+
+    wrapper.className =
+        "message user-message";
 
 
-    row.innerHTML = `
-
-        <div class="user-message">
-
-            ${escapeHTML(text)}
-
-        </div>
-
-    `;
+    const content =
+        document.createElement("div");
 
 
-    messages.appendChild(row);
+    content.className =
+        "message-content";
+
+
+    content.textContent =
+        text;
+
+
+    wrapper.appendChild(
+        content
+    );
+
+
+    messages.appendChild(
+        wrapper
+    );
+
 
     scrollToBottom();
 }
 
 
-/* ================= OPTION ================= */
+/* =========================================================
+   SEND TEXT
+========================================================= */
 
-function selectOption(button) {
+async function sendMessage() {
 
-    const value =
-        button.dataset.value;
-
-    addUserMessage(value);
-
-    processAnswer(value);
-
-}
+    if (
+        !currentQuestion ||
+        currentQuestion.type !== "text"
+    ) {
+        return;
+    }
 
 
-/* ================= TEXT ================= */
-
-function sendMessage() {
-
-    const value =
+    const answer =
         messageInput.value.trim();
 
 
-    if (!value) return;
+    if (!answer) {
+        return;
+    }
 
-
-    addUserMessage(value);
 
     messageInput.value = "";
 
-    updateSendButton();
 
-    processAnswer(value);
+    await processAnswer(
+        answer
+    );
 }
 
 
-/* ================= ANSWER PROCESSING ================= */
+/* =========================================================
+   PROCESS ANSWER
+========================================================= */
 
-function processAnswer(answer) {
+async function processAnswer(answer) {
 
-    const question =
-        questions[selectedLanguage][currentQuestion];
+    if (!answer || !currentQuestion) {
+        return;
+    }
+
+
+    /* -----------------------------------------------------
+       SHOW USER MESSAGE
+    ----------------------------------------------------- */
+
+    addUserMessage(answer);
+
+
+    /* -----------------------------------------------------
+       DISABLE INPUT
+    ----------------------------------------------------- */
+
+    messageInput.disabled = true;
+
+    sendButton.disabled = true;
+
+    voiceButton.disabled = true;
+
+
+    /* -----------------------------------------------------
+       DISABLE OLD OPTIONS
+    ----------------------------------------------------- */
+
+    document
+        .querySelectorAll(".chat-option")
+        .forEach(button => {
+
+            button.disabled = true;
+
+        });
 
 
     answeredQuestions++;
 
+
     updateProgress();
 
 
-    /*
-       Prototype red-flag rules.
+    showTyping();
 
-       In production, these should be replaced
-       by validated clinical decision logic
-       and backend processing.
+
+    try {
+
+        const result =
+            await apiRequest(
+                "/health-interview/message",
+                {
+                    method: "POST",
+
+                    body: JSON.stringify({
+
+                        interviewId,
+
+                        questionId:
+                            currentQuestion.id,
+
+                        questionText:
+                            currentQuestion.text,
+
+                        answer,
+
+                        language:
+                            selectedLanguage
+
+                    })
+                }
+            );
+
+
+        hideTyping();
+
+
+        const data =
+            result.data;
+
+
+        /* =================================================
+           RED FLAG
+        ================================================= */
+
+        if (
+            data.type === "redFlag"
+        ) {
+
+            showRedFlag(
+                data.message
+            );
+
+            return;
+        }
+
+
+        /* =================================================
+           COMPLETED
+        ================================================= */
+
+        if (
+            data.type === "completed"
+        ) {
+
+            showAssessment(
+                data.assessment
+            );
+
+            return;
+        }
+
+
+        /* =================================================
+           NEXT QUESTION
+        ================================================= */
+
+        if (
+            data.type === "question"
+        ) {
+
+            displayQuestion(
+                data.question
+            );
+
+            return;
+        }
+
+
+    } catch (error) {
+
+        hideTyping();
+
+
+        addBotMessage(
+            "Sorry, something went wrong while processing your answer. Please try again."
+        );
+
+
+        console.error(
+            "Chat Error:",
+            error
+        );
+
+
+        updateInputState();
+    }
+}
+
+
+/* =========================================================
+   ASSESSMENT
+========================================================= */
+
+function showAssessment(
+    assessment
+) {
+
+    currentQuestion = null;
+
+
+    messageInput.disabled = true;
+
+    sendButton.disabled = true;
+
+    voiceButton.disabled = true;
+
+
+    const wrapper =
+        document.createElement("div");
+
+
+    wrapper.className =
+        "assessment-card";
+
+
+    const categories =
+        Array.isArray(
+            assessment.possibleCategories
+        )
+            ? assessment.possibleCategories
+            : [];
+
+
+    wrapper.innerHTML = `
+
+        <h3>🩺 Health Check-in Complete</h3>
+
+        <p>
+            ${escapeHTML(
+                assessment.summary || ""
+            )}
+        </p>
+
+        <h4>Possible symptom categories</h4>
+
+        <ul>
+            ${
+                categories
+                    .map(
+                        item =>
+                            `<li>${escapeHTML(item)}</li>`
+                    )
+                    .join("")
+            }
+        </ul>
+
+        <h4>Recommended healthcare professional</h4>
+
+        <p>
+            👨‍⚕️
+            ${escapeHTML(
+                assessment.recommendedDoctor ||
+                "General Physician"
+            )}
+        </p>
+
+        <h4>Next step</h4>
+
+        <p>
+            ${escapeHTML(
+                assessment.nextStep || ""
+            )}
+        </p>
+
+        <small>
+            ⚠️ ${escapeHTML(
+                assessment.disclaimer ||
+                "This is not a diagnosis."
+            )}
+        </small>
+
+    `;
+
+
+    messages.appendChild(
+        wrapper
+    );
+
+
+    scrollToBottom();
+
+
+    updateProgress(
+        true
+    );
+}
+
+
+/* =========================================================
+   RED FLAG DISPLAY
+========================================================= */
+
+function showRedFlag(message) {
+
+    if (
+        redFlagMessage
+    ) {
+
+        redFlagMessage.textContent =
+            message;
+    }
+
+
+    if (
+        redFlagOverlay
+    ) {
+
+        redFlagOverlay.style.display =
+            "flex";
+    }
+}
+
+
+/* =========================================================
+   ALERT CLINICAL STAFF
+========================================================= */
+
+function alertClinicalStaff() {
+
+    addBotMessage(
+        "🚨 Please inform a healthcare professional immediately and seek urgent medical attention."
+    );
+
+
+    if (redFlagOverlay) {
+
+        redFlagOverlay.style.display =
+            "none";
+    }
+}
+
+
+/* =========================================================
+   CONTINUE AFTER FLAG
+========================================================= */
+
+function continueAfterFlag() {
+
+    /*
+       For safety, we do NOT automatically
+       continue an urgent interview.
     */
 
-    if (checkForRedFlag(question, answer)) {
+    if (redFlagOverlay) {
 
-        redFlagDetected = true;
+        redFlagOverlay.style.display =
+            "none";
+    }
 
-        setTimeout(() => {
 
-            showRedFlag(answer);
+    addBotMessage(
+        "⚠️ Because a potentially urgent symptom was detected, please seek medical attention before continuing this assessment."
+    );
 
-        }, 400);
+
+    currentQuestion = null;
+
+
+    messageInput.disabled = true;
+
+    sendButton.disabled = true;
+
+    voiceButton.disabled = true;
+}
+
+
+/* =========================================================
+   INPUT STATE
+========================================================= */
+
+function updateInputState() {
+
+    if (!currentQuestion) {
+
+        messageInput.disabled = true;
+
+        sendButton.disabled = true;
+
+        voiceButton.disabled = true;
 
         return;
     }
 
 
-    currentQuestion++;
+    const textMode =
+        currentQuestion.type === "text";
 
 
-    setTimeout(() => {
+    messageInput.disabled =
+        !textMode;
 
-        askNextQuestion();
 
-    }, 450);
+    sendButton.disabled =
+        !textMode;
+
+
+    voiceButton.disabled =
+        !textMode;
 }
 
 
-/* ================= RED FLAG ================= */
+/* =========================================================
+   PROGRESS
+========================================================= */
 
-function checkForRedFlag(question, answer) {
+function updateProgress(
+    completed = false
+) {
 
-    const text =
-        answer.toLowerCase();
+    if (completed) {
 
+        progressFill.style.width =
+            "100%";
 
-    if (question.id === "breathing") {
+        stepText.textContent =
+            "Complete";
 
-        return (
-            text.includes("yes") ||
-            text.includes("severe") ||
-            text.includes("गंभीर") ||
-            text.includes("হ্যাঁ") ||
-            text.includes("गाह्रो")
-        );
-
+        return;
     }
-
-
-    if (question.id === "chest") {
-
-        return (
-            text === "yes" ||
-            text.includes("हाँ") ||
-            text.includes("হ্যাঁ") ||
-            text === "हो"
-        );
-
-    }
-
-
-    if (question.id === "severity") {
-
-        return (
-            text === "severe" ||
-            text.includes("गंभीर") ||
-            text.includes("গুরুতর")
-        );
-
-    }
-
-
-    /*
-       Text-based emergency keyword detection.
-    */
-
-    const emergencyWords = [
-
-        "can't breathe",
-        "cannot breathe",
-        "difficulty breathing",
-        "severe chest pain",
-        "unconscious",
-        "fainted",
-        "heavy bleeding",
-
-        "सांस नहीं",
-        "सीने में तेज दर्द",
-
-        "শ্বাস নিতে পারছি না",
-        "তীব্র বুকে ব্যথা",
-
-        "सास फेर्न सक्दिन",
-        "छाती धेरै दुख्यो"
-
-    ];
-
-
-    return emergencyWords.some(word =>
-        text.includes(word)
-    );
-}
-
-
-/* ================= RED FLAG MODAL ================= */
-
-function showRedFlag(answer) {
-
-    const overlay =
-        document.getElementById("redFlagOverlay");
-
-    const message =
-        document.getElementById("redFlagMessage");
-
-
-    message.innerText =
-        "Your response may indicate a symptom that needs prompt clinical attention. A member of the clinical team should review your response.";
-
-
-    overlay.classList.add("show");
-
-}
-
-
-/* ================= ALERT ================= */
-
-function alertClinicalStaff() {
-
-    const overlay =
-        document.getElementById("redFlagOverlay");
-
-
-    overlay.classList.remove("show");
-
-
-    addBotMessage(
-        "I've marked your response for clinical attention. Please wait for assistance."
-    );
-
-
-    /*
-       In production:
-
-       fetch("/api/clinical-alert", {
-           method: "POST",
-           headers: {
-               "Content-Type": "application/json",
-               "Authorization": "Bearer TOKEN"
-           },
-           body: JSON.stringify({
-               patientId: "...",
-               reason: "...",
-               severity: "urgent"
-           })
-       });
-
-    */
-
-    console.log(
-        "CLINICAL ALERT: Staff notification triggered."
-    );
-
-
-    currentQuestion++;
-
-    setTimeout(() => {
-
-        askNextQuestion();
-
-    }, 700);
-}
-
-
-/* ================= CONTINUE ================= */
-
-function continueAfterFlag() {
-
-    document
-        .getElementById("redFlagOverlay")
-        .classList.remove("show");
-
-
-    addBotMessage(
-        "We'll continue carefully. Your response has been recorded for the clinical team."
-    );
-
-
-    currentQuestion++;
-
-
-    setTimeout(() => {
-
-        askNextQuestion();
-
-    }, 700);
-}
-
-
-/* ================= PROGRESS ================= */
-
-function updateProgress() {
-
-    answeredCount.innerText =
-        answeredQuestions;
-
-
-    const total =
-        questions[selectedLanguage].length - 1;
-
-
-    totalQuestions.innerText =
-        total;
 
 
     const percentage =
         Math.min(
-            (answeredQuestions / total) * 100,
-            100
+            90,
+            Math.max(
+                5,
+                answeredQuestions * 10
+            )
         );
 
 
     progressFill.style.width =
-        percentage + "%";
+        `${percentage}%`;
 
 
-    stepText.innerText =
-        `Step ${Math.min(currentQuestion + 1, 4)} of 4`;
+    if (stepText) {
+
+        stepText.textContent =
+            `Question ${answeredQuestions + 1}`;
+    }
+
+
+    if (answeredCount) {
+
+        answeredCount.textContent =
+            answeredQuestions;
+    }
+
+
+    if (totalQuestions) {
+
+        totalQuestions.textContent =
+            "dynamic";
+    }
 }
 
 
-/* ================= TYPING ================= */
+/* =========================================================
+   TYPING
+========================================================= */
 
 function showTyping() {
 
-    typingIndicator.style.display =
-        "flex";
+    if (typingIndicator) {
+
+        typingIndicator.style.display =
+            "flex";
+    }
+
 
     scrollToBottom();
 }
@@ -990,155 +904,219 @@ function showTyping() {
 
 function hideTyping() {
 
-    typingIndicator.style.display =
-        "none";
+    if (typingIndicator) {
+
+        typingIndicator.style.display =
+            "none";
+    }
 }
 
 
-/* ================= VOICE ================= */
+/* =========================================================
+   SCROLL
+========================================================= */
 
-let recognition;
+function scrollToBottom() {
+
+    if (messages) {
+
+        setTimeout(() => {
+
+            messages.scrollTop =
+                messages.scrollHeight;
+
+        }, 50);
+    }
+}
 
 
-function toggleVoice() {
+/* =========================================================
+   ESCAPE HTML
+========================================================= */
 
-    /*
-       Browser Web Speech API.
-       Works best in Chrome/Edge.
-    */
+function escapeHTML(value) {
+
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/* =========================================================
+   LANGUAGE
+========================================================= */
+
+if (languageSelect) {
+
+    languageSelect.addEventListener(
+        "change",
+        function () {
+
+            selectedLanguage =
+                this.value;
+
+
+            if (!checkInStarted) {
+                return;
+            }
+
+
+            addBotMessage(
+                "🌐 Language changed. The new language will be used for the next questions."
+            );
+        }
+    );
+}
+
+
+/* =========================================================
+   ENTER KEY
+========================================================= */
+
+if (messageInput) {
+
+    messageInput.addEventListener(
+        "keydown",
+        function (event) {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendMessage();
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   VOICE
+========================================================= */
+
+let recognition = null;
+
+
+if (
+    "webkitSpeechRecognition" in window ||
+    "SpeechRecognition" in window
+) {
 
     const SpeechRecognition =
         window.SpeechRecognition ||
         window.webkitSpeechRecognition;
 
 
-    if (!SpeechRecognition) {
-
-        alert(
-            "Voice input is not supported in this browser. Please use Chrome or Edge."
-        );
-
-        return;
-    }
-
-
-    if (voiceActive) {
-
-        recognition.stop();
-
-        return;
-    }
-
-
     recognition =
         new SpeechRecognition();
 
-
-    recognition.lang =
-        getSpeechLanguage();
-
-
-    recognition.interimResults =
-        false;
 
     recognition.continuous =
         false;
 
 
-    recognition.onstart = function () {
+    recognition.interimResults =
+        false;
 
-        voiceActive = true;
 
-        voiceButton.classList.add(
-            "recording"
-        );
+    recognition.lang =
+        "en-IN";
 
-        voiceButton.innerHTML =
-            '<i class="fa-solid fa-stop"></i>';
-    };
+
+    recognition.onstart =
+        function () {
+
+            voiceActive = true;
+
+            if (voiceButton) {
+
+                voiceButton.classList.add(
+                    "active"
+                );
+            }
+        };
+
+
+    recognition.onend =
+        function () {
+
+            voiceActive = false;
+
+            if (voiceButton) {
+
+                voiceButton.classList.remove(
+                    "active"
+                );
+            }
+        };
 
 
     recognition.onresult =
-        function(event) {
+        function (event) {
 
             const transcript =
                 event.results[0][0].transcript;
 
 
-            messageInput.value =
-                transcript;
+            if (messageInput) {
 
+                messageInput.value =
+                    transcript;
+            }
 
-            updateSendButton();
 
             sendMessage();
         };
 
 
     recognition.onerror =
-        function(event) {
+        function (event) {
 
-            console.log(
-                "Voice error:",
+            console.error(
+                "Speech Recognition Error:",
                 event.error
             );
+
         };
-
-
-    recognition.onend =
-        function() {
-
-            voiceActive = false;
-
-            voiceButton.classList.remove(
-                "recording"
-            );
-
-            voiceButton.innerHTML =
-                '<i class="fa-solid fa-microphone"></i>';
-        };
-
-
-    recognition.start();
 }
 
 
-/* ================= LANGUAGE ================= */
+/* =========================================================
+   TOGGLE VOICE
+========================================================= */
 
-languageSelect.addEventListener(
-    "change",
-    function() {
+function toggleVoice() {
 
-        selectedLanguage =
-            this.value;
+    if (!recognition) {
 
-
-        if (!checkInStarted) return;
-
-
-        addBotMessage(
-            getLanguageChangeMessage()
+        alert(
+            "Voice input is not supported in this browser."
         );
 
-
-        /*
-           For a real application,
-           store language preference in backend.
-        */
-
-        currentQuestion = 0;
-
-        answeredQuestions = 0;
-
-        updateProgress();
-
+        return;
     }
-);
 
 
-function getSpeechLanguage() {
+    if (!currentQuestion) {
+        return;
+    }
 
-    const languages = {
+
+    if (
+        currentQuestion.type !== "text"
+    ) {
+
+        return;
+    }
+
+
+    const languageMap = {
 
         en: "en-IN",
 
@@ -1151,215 +1129,43 @@ function getSpeechLanguage() {
     };
 
 
-    return languages[selectedLanguage] ||
+    recognition.lang =
+        languageMap[selectedLanguage] ||
         "en-IN";
-}
 
 
-function getLanguageChangeMessage() {
+    if (voiceActive) {
 
-    const messages = {
-
-        en:
-            "I'll continue the health check-in in English.",
-
-        hi:
-            "मैं स्वास्थ्य चेक-इन हिंदी में जारी रखूंगा।",
-
-        bn:
-            "আমি বাংলায় স্বাস্থ্য চেক-ইন চালিয়ে যাব।",
-
-        ne:
-            "म नेपालीमा स्वास्थ्य चेक-इन जारी राख्नेछु।"
-
-    };
-
-
-    return messages[selectedLanguage];
-}
-
-
-/* ================= INPUT STATE ================= */
-
-messageInput.addEventListener(
-    "input",
-    updateSendButton
-);
-
-
-messageInput.addEventListener(
-    "keydown",
-    function(event) {
-
-        if (event.key === "Enter") {
-
-            event.preventDefault();
-
-            sendMessage();
-        }
-
-    }
-);
-
-
-function updateSendButton() {
-
-    if (messageInput.value.trim()) {
-
-        sendButton.classList.add(
-            "active"
-        );
+        recognition.stop();
 
     } else {
 
-        sendButton.classList.remove(
-            "active"
-        );
+        recognition.start();
     }
 }
 
 
-/* ================= FINISH ================= */
-
-function finishCheckIn() {
-
-    messageInput.disabled = true;
-
-    sendButton.disabled = true;
-
-    voiceButton.disabled = true;
-
-
-    progressFill.style.width =
-        "100%";
-
-    stepText.innerText =
-        "Check-in complete";
-
-
-    setTimeout(() => {
-
-        showCompletionCard();
-
-    }, 500);
-}
-
-
-/* ================= COMPLETION ================= */
-
-function showCompletionCard() {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row bot-row";
-
-
-    row.innerHTML = `
-
-        <div class="bot-avatar">
-
-            <i class="fa-solid fa-check"></i>
-
-        </div>
-
-        <div class="message-content">
-
-            <div class="bot-label">
-                MedZyra AI
-            </div>
-
-            <div class="message">
-
-                <h3>
-                    Check-in complete
-                </h3>
-
-                <p>
-                    Your responses have been recorded
-                    and are ready for your healthcare team.
-                </p>
-
-                <div style="
-                    margin-top:15px;
-                    padding:12px;
-                    background:#eefaf8;
-                    border-radius:12px;
-                    color:#087f78;
-                    font-size:12px;
-                ">
-
-                    <i class="fa-solid fa-shield-heart"></i>
-
-                    Your information is ready for clinical review.
-
-                </div>
-
-            </div>
-
-        </div>
-
-    `;
-
-
-    messages.appendChild(row);
-
-    scrollToBottom();
-}
-
-
-/* ================= SCROLL ================= */
-
-function scrollToBottom() {
-
-    setTimeout(() => {
-
-        window.scrollTo({
-
-            top:
-                document.body.scrollHeight,
-
-            behavior: "smooth"
-
-        });
-
-    }, 100);
-}
-
-
-/* ================= ESCAPE HTML ================= */
-
-function escapeHTML(value) {
-
-    return value
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-
-/* ================= BACK ================= */
+/* =========================================================
+   BACK
+========================================================= */
 
 function goBack() {
-
-    if (checkInStarted) {
-
-        const confirmBack =
-            confirm(
-                "Leave this health check-in?"
-            );
-
-        if (!confirmBack) return;
-    }
-
 
     window.history.back();
 }
 
 
-/* ================= INITIAL ================= */
+/* =========================================================
+   INITIALIZE
+========================================================= */
 
-updateProgress();
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        updateInputState();
+
+        updateProgress();
+
+    }
+);
