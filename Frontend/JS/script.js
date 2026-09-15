@@ -660,7 +660,7 @@ if ($("sendOtpBtn")) {
 
 
             toast(
-                "8-digit OTP sent to your email 📧"
+                "6-digit OTP sent to your email 📧"
             );
 
 
@@ -733,13 +733,13 @@ if ($("loginForm")) {
 
 
             /* =========================================
-               8-DIGIT OTP VALIDATION
+               6-DIGIT OTP VALIDATION
                ========================================= */
 
-            if (!/^\d{8}$/.test(otp)) {
+            if (!/^\d{6}$/.test(otp)) {
 
                 toast(
-                    "Please enter the 8-digit OTP."
+                    "Please enter the 6-digit OTP."
                 );
 
                 $("loginOtp").focus();
@@ -2531,7 +2531,7 @@ if ($("forgotBtn")) {
 
 
             toast(
-                "New 8-digit OTP sent 📧"
+                "New 6-digit OTP sent 📧"
             );
 
 
