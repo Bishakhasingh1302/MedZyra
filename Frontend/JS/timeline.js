@@ -426,7 +426,7 @@ document
 function goToDocuments() {
 
     window.location.href =
-        "documents.html";
+        "../Document/documents.html";
 
 }
 
