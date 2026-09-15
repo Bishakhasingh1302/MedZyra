@@ -1,8 +1,32 @@
 const $ = id => document.getElementById(id);
+const API_URL = "http://localhost:5000/api";
+const AUTH_ENDPOINTS = {
+  sendOtp: "/auth/send-otp",
+  verifyOtp: "/auth/verify-otp",
+  register: "/auth/register"
+};
+
+async function apiRequest(path, options = {}){
+  const token = localStorage.getItem("medikiosk_token");
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? {Authorization: `Bearer ${token}`} : {}),
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json") ? await response.json() : await response.text();
+  if(!response.ok){
+    const message = typeof data === "string" ? data : data.message;
+    throw new Error(message || `Request failed with status ${response.status}`);
+  }
+  return data;
+}
 
 let users = JSON.parse(localStorage.getItem("medikiosk_users") || "[]");
 let currentUser = JSON.parse(localStorage.getItem("medikiosk_current") || "null");
-const otpStore = {};
 const predefinedAllergies = [
   "Penicillin", "Peanuts", "Shellfish", "Eggs", "Milk", "Soy", "Wheat", "Tree Nuts", "Fish",
   "Latex", "Dust Mites", "Pollen", "Animal Dander", "Mold", "Bee Sting", "Sulfa Drugs", "Aspirin",
@@ -19,21 +43,21 @@ function toggleOtpControls(show){
   $("loginSubmitBtn").classList.toggle("hidden",!show);
   $("forgotBtn").classList.toggle("hidden",!show);
 }
-function findUserByIdentifier(identifier){
-  if(!identifier) return null;
-  const cleanIdentifier=identifier.trim().toLowerCase();
-  return users.find(u=>(u.email||"").toLowerCase()===cleanIdentifier || (u.phone||"").replace(/\D/g,"")===cleanIdentifier.replace(/\D/g,""));
-}
-function sendOtp(identifier){
-  const user=findUserByIdentifier(identifier);
-  if(!user){toast("Account not found. Please create an account first."); return false;}
-  const otp=String(Math.floor(100000+Math.random()*900000));
-  otpStore[user.id]=otp;
-  $("loginOtp").value="";
-  toggleOtpControls(true);
-  toast(`OTP sent successfully. Demo code: ${otp}`);
-  $("loginOtp").focus();
-  return true;
+async function sendOtp(identifier){
+  try{
+    const result=await apiRequest(AUTH_ENDPOINTS.sendOtp,{
+      method:"POST",
+      body:JSON.stringify({identifier})
+    });
+    $("loginOtp").value="";
+    toggleOtpControls(true);
+    toast(result.message || "OTP sent successfully.");
+    $("loginOtp").focus();
+    return true;
+  }catch(error){
+    toast(error.message || "Unable to send OTP.");
+    return false;
+  }
 }
 function renderAllergySuggestions(){
   const container=$("allergySuggestions");
@@ -68,6 +92,25 @@ function calculateAge(dob){
   if(monthDiff<0 || (monthDiff===0 && today.getDate()<birthDate.getDate())) age--;
   return age;
 }
+function normalizeUser(user = {}){
+  return {
+    ...user,
+    id:user.id || user.userId,
+    fullName:user.fullName || user.full_name || "User",
+    phone:user.phone || "",
+    email:user.email || "",
+    dob:user.dob || user.dateOfBirth || user.date_of_birth || "",
+    bloodGroup:user.bloodGroup || user.blood_group || "",
+    emergency:user.emergency || user.emergencyContact || user.emergency_contact || "",
+    height:user.height || "Not added",
+    weight:user.weight || "Not added",
+    allergies:user.allergies || "None",
+    chronic:user.chronic || user.chronicConditions || user.chronic_conditions || "None",
+    appointments:user.appointments || [],
+    medicines:user.medicines || [],
+    documents:user.documents || []
+  };
+}
 function setAuthMode(mode){
   const login=mode==="login";
   $("loginForm").classList.toggle("hidden",!login);
@@ -88,8 +131,10 @@ function validateStep1(){
   const ids=["fullName","phone","email","dob","gender","bloodGroup","city","emergency"];
   for(const id of ids){ if(!$(id).value.trim()){toast("Please complete all required details.");$(id).focus();return false;} }
   if(!$("terms").checked){toast("Please accept the Terms & Conditions.");return false;}
-  if(!/^\d{10}$/.test($("phone").value.replace(/\D/g,""))){toast("Enter a valid 10-digit phone number.");return false;}
-  if(!/^\d{10}$/.test($("emergency").value.replace(/\D/g,""))){toast("Enter a valid emergency contact number.");return false;}
+    const phone=$("phone").value.trim().replace(/[\s()-]/g,"");
+    const emergency=$("emergency").value.trim().replace(/[\s()-]/g,"");
+    if(!/^\+?[1-9]\d{7,14}$/.test(phone)){toast("Enter a valid phone number, including country code when needed.");$("phone").focus();return false;}
+    if(!/^\+?[1-9]\d{7,14}$/.test(emergency)){toast("Enter a valid emergency contact number.");$("emergency").focus();return false;}
   return true;
 }
 $("showRegister").onclick=()=>{setAuthMode("register");showStep(1)};
@@ -97,15 +142,24 @@ $("showLogin").onclick=()=>setAuthMode("login");
 $("nextStep").onclick=()=>{if(validateStep1())showStep(2)};
 $("backStep").onclick=()=>showStep(1);
 
-$("loginForm").addEventListener("submit",e=>{
+$("loginForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const identifier=$("loginIdentifier").value.trim();
   const otp=$("loginOtp").value.trim();
-  const user=findUserByIdentifier(identifier);
-  if(!user){toast("Account not found. Please create an account first.");return}
   if(!otp){toast("Please enter the OTP sent to your registered email or phone."); return}
-  if(otpStore[user.id]!==otp){toast("Invalid OTP. Please resend and try again."); return}
-  currentUser=user; localStorage.setItem("medikiosk_current",JSON.stringify(user)); enterDashboard();
+  try{
+    const result=await apiRequest(AUTH_ENDPOINTS.verifyOtp,{
+      method:"POST",
+      body:JSON.stringify({identifier, otp})
+    });
+    currentUser=normalizeUser(result.user || result.data || result);
+    const token=result.token || result.accessToken || result.data?.accessToken;
+    if(token)localStorage.setItem("medikiosk_token",token);
+    localStorage.setItem("medikiosk_current",JSON.stringify(currentUser));
+    enterDashboard();
+  }catch(error){
+    toast(error.message || "Invalid OTP. Please try again.");
+  }
 });
 
 $("sendOtpBtn").onclick=()=>{
@@ -120,22 +174,32 @@ $("loginIdentifier").addEventListener("input",()=>{
   }
 });
 
-$("registerForm").addEventListener("submit",e=>{
+$("registerForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const email=$("email").value.trim().toLowerCase(), phone=$("phone").value.replace(/\D/g,"");
-  if(users.some(u=>u.email===email)){toast("An account with this email already exists.");showStep(1);return}
-  if(users.some(u=>u.phone===phone)){toast("An account with this phone already exists.");showStep(1);return}
+  const email=$("email").value.trim().toLowerCase(), phone=$("phone").value.trim().replace(/[\s()-]/g,"");
+  const emergency=$("emergency").value.trim().replace(/[\s()-]/g,"");
   const user={
     id:Date.now(), fullName:$("fullName").value.trim(), phone, email,
-    dob:$("dob").value, age:calculateAge($("dob").value), gender:$("gender").value, bloodGroup:$("bloodGroup").value, city:$("city").value.trim(),
-    emergency:$("emergency").value.replace(/\D/g,""), height:$("height").value||"Not added",
+    dateOfBirth:$("dob").value, age:calculateAge($("dob").value), gender:$("gender").value, bloodGroup:$("bloodGroup").value, city:$("city").value.trim(),
+      emergencyContact:emergency, termsAccepted:true, height:$("height").value||"Not added",
     weight:$("weight").value||"Not added", allergies:$("allergies").value.trim()||"None",
     smoking:$("smoking").value, drinking:$("drinking").value, exercise:$("exercise").value,
-    chronic:$("chronic").value.trim()||"None", appointments:[], medicines:[], documents:[]
+    chronicConditions:$("chronic").value.trim()||"None"
   };
-  users.push(user); saveUsers(); currentUser=user; localStorage.setItem("medikiosk_current",JSON.stringify(user));
-  toast("Account created successfully!");
-  enterDashboard();
+  try{
+    const result=await apiRequest(AUTH_ENDPOINTS.register,{
+      method:"POST",
+      body:JSON.stringify(user)
+    });
+    currentUser=normalizeUser(result.user || result.data || result);
+    const token=result.token || result.accessToken || result.data?.accessToken;
+    if(token)localStorage.setItem("medikiosk_token",token);
+    localStorage.setItem("medikiosk_current",JSON.stringify(currentUser));
+    toast(result.message || "Account created successfully!");
+    enterDashboard();
+  }catch(error){
+    toast(error.message || "Unable to create account.");
+  }
 });
 
 function enterDashboard(){
@@ -222,7 +286,7 @@ function syncCurrent(){
   const i=users.findIndex(u=>u.id===currentUser.id);if(i>-1)users[i]=currentUser;
   saveUsers();localStorage.setItem("medikiosk_current",JSON.stringify(currentUser));
 }
-$("logoutBtn").onclick=()=>{localStorage.removeItem("medikiosk_current");currentUser=null;$("dashboardScreen").classList.add("hidden");$("authScreen").classList.remove("hidden");$("loginForm").reset();setAuthMode("login");toast("Logged out successfully.")};
+$("logoutBtn").onclick=()=>{localStorage.removeItem("medikiosk_current");localStorage.removeItem("medikiosk_token");currentUser=null;$("dashboardScreen").classList.add("hidden");$("authScreen").classList.remove("hidden");$("loginForm").reset();setAuthMode("login");toast("Logged out successfully.")};
 $("forgotBtn").onclick=()=>{
   const identifier=$("loginIdentifier").value.trim();
   if(!identifier){toast("Enter your email or phone first."); $("loginIdentifier").focus(); return;}
