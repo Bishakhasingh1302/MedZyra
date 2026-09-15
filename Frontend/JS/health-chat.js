@@ -27,6 +27,23 @@ let voiceActive = false;
 
 let selectedLanguage = "en";
 
+let discussionMode = null;
+
+let discussionConversation = [];
+
+let voiceConversationActive = false;
+
+const END_CONVERSATION_PATTERNS = [
+    /\bend (the )?conversation\b/i,
+    /\bstop (the )?conversation\b/i,
+    /\bclose (the )?conversation\b/i,
+    /\bfinish (the )?conversation\b/i,
+    /\bi('m| am) done\b/i,
+    /\bthat('s| is) all\b/i,
+    /\bno more questions\b/i,
+    /\bgoodbye\b/i
+];
+
 
 /* =========================================================
    DOM
@@ -71,6 +88,21 @@ const patientName =
 const languageSelect =
     document.getElementById("languageSelect");
 
+function loadPatientName() {
+    try {
+        const storedUser = JSON.parse(
+            localStorage.getItem("medikiosk_current") || "null"
+        );
+        const name = storedUser?.fullName || storedUser?.full_name;
+
+        if (name && patientName) {
+            patientName.textContent = `Hello, ${name}`;
+        }
+    } catch (error) {
+        console.warn("Unable to load stored patient name:", error);
+    }
+}
+
 
 /* =========================================================
    RED FLAG
@@ -108,6 +140,16 @@ async function startCheckIn() {
         return;
     }
 
+    const token = localStorage.getItem("medikiosk_token");
+
+    if (!token) {
+        addBotMessage("Please sign in first so your health check-in can be saved securely.");
+        setTimeout(() => {
+            window.location.href = "../Authentication/index.html";
+        }, 900);
+        return;
+    }
+
     checkInStarted = true;
     startChatBtn.disabled = true;
     startRow.style.display = "none";
@@ -120,6 +162,11 @@ async function startCheckIn() {
         });
         const data = result.data || result;
         interviewId = data.interviewId || data.id;
+
+        if (data.patientName && patientName) {
+            patientName.textContent = `Hello, ${data.patientName}`;
+        }
+
         displayQuestion(data.question);
         updateProgress();
     } catch (error) {
@@ -127,7 +174,10 @@ async function startCheckIn() {
         checkInStarted = false;
         startChatBtn.disabled = false;
         startRow.style.display = "flex";
-        addBotMessage("Sorry, I couldn't start the health interview. Please try again.");
+        addBotMessage(
+            error.message ||
+            "Sorry, I couldn't start the health interview. Please try again."
+        );
         console.error("Start interview error:", error);
     }
 }
@@ -156,6 +206,10 @@ function displayQuestion(question) {
             question.options || []
         );
 
+        if (voiceConversationActive) {
+            speakResponse(question.text);
+        }
+
 
         updateInputState();
 
@@ -177,7 +231,35 @@ function addBotMessage(
 
 
     wrapper.className =
-        "message bot-message";
+        "message-row bot-row";
+
+    const avatar =
+        document.createElement("div");
+
+    avatar.className =
+        "bot-avatar";
+
+    avatar.innerHTML =
+        '<i class="fa-solid fa-sparkles"></i>';
+
+    wrapper.appendChild(avatar);
+
+    const messageGroup =
+        document.createElement("div");
+
+    messageGroup.className =
+        "message-content";
+
+    const label =
+        document.createElement("div");
+
+    label.className =
+        "bot-label";
+
+    label.innerHTML =
+        'MedZyra AI <span>● Online</span>';
+
+    messageGroup.appendChild(label);
 
 
     const content =
@@ -185,14 +267,14 @@ function addBotMessage(
 
 
     content.className =
-        "message-content";
+        "message bot-message";
 
 
     content.innerHTML =
         escapeHTML(text);
 
 
-    wrapper.appendChild(content);
+    messageGroup.appendChild(content);
 
 
     /* -----------------------------------------------------
@@ -269,11 +351,13 @@ function addBotMessage(
         });
 
 
-        wrapper.appendChild(
+        messageGroup.appendChild(
             optionsContainer
         );
     }
 
+
+    wrapper.appendChild(messageGroup);
 
     messages.appendChild(
         wrapper
@@ -295,7 +379,24 @@ function addUserMessage(text) {
 
 
     wrapper.className =
-        "message user-message";
+        "user-row";
+
+    const messageGroup =
+        document.createElement("div");
+
+    messageGroup.className =
+        "user-message-group";
+
+    const label =
+        document.createElement("div");
+
+    label.className =
+        "user-label";
+
+    label.innerHTML =
+        'You <i class="fa-solid fa-check"></i>';
+
+    messageGroup.appendChild(label);
 
 
     const content =
@@ -303,16 +404,26 @@ function addUserMessage(text) {
 
 
     content.className =
-        "message-content";
+        "message user-message";
 
 
     content.textContent =
         text;
 
 
-    wrapper.appendChild(
-        content
-    );
+    messageGroup.appendChild(content);
+
+    const avatar =
+        document.createElement("div");
+
+    avatar.className =
+        "user-avatar";
+
+    avatar.innerHTML =
+        '<i class="fa-solid fa-user"></i>';
+
+    wrapper.appendChild(messageGroup);
+    wrapper.appendChild(avatar);
 
 
     messages.appendChild(
@@ -348,6 +459,54 @@ async function sendMessage() {
 
 
     messageInput.value = "";
+
+    if (discussionMode) {
+        addUserMessage(answer);
+
+        if (shouldEndConversation(answer)) {
+            endDiscussion();
+            return;
+        }
+
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+        voiceButton.disabled = true;
+        showTyping();
+
+        try {
+            const result = await apiRequest("/health-ai/chat", {
+                method: "POST",
+                body: JSON.stringify({
+                    message: answer,
+                    language: selectedLanguage,
+                    conversation: discussionConversation,
+                    interactionMode: discussionMode
+                })
+            });
+
+            hideTyping();
+            const data = result.data || {};
+            const responseText = data.question || data.message || data.summary || "I am ready to continue discussing this with you.";
+            discussionConversation.push(
+                { role: "user", content: answer },
+                { role: "assistant", content: responseText }
+            );
+            addBotMessage(responseText);
+
+            if (voiceConversationActive) {
+                speakResponse(responseText);
+            }
+
+            updateInputState();
+        } catch (error) {
+            hideTyping();
+            addBotMessage("Sorry, I couldn't continue the discussion. Please try again.");
+            console.error("Discussion chat error:", error);
+            updateInputState();
+        }
+
+        return;
+    }
 
 
     await processAnswer(
@@ -467,7 +626,9 @@ async function processAnswer(answer) {
         ) {
 
             showAssessment(
-                data.assessment
+                data.assessment,
+                data.discussion,
+                data.patientName
             );
 
             return;
@@ -496,6 +657,7 @@ async function processAnswer(answer) {
 
 
         addBotMessage(
+            error.message ||
             "Sorry, something went wrong while processing your answer. Please try again."
         );
 
@@ -516,7 +678,9 @@ async function processAnswer(answer) {
 ========================================================= */
 
 function showAssessment(
-    assessment
+    assessment,
+    discussion = {},
+    returnedPatientName = ""
 ) {
 
     currentQuestion = null;
@@ -544,6 +708,10 @@ function showAssessment(
             ? assessment.possibleCategories
             : [];
 
+
+    if (returnedPatientName && patientName) {
+        patientName.textContent = `Hello, ${returnedPatientName}`;
+    }
 
     wrapper.innerHTML = `
 
@@ -593,6 +761,35 @@ function showAssessment(
             )}
         </small>
 
+        <div class="discussion-panel">
+            <div class="discussion-copy">
+                <span class="discussion-kicker">NEXT, WITH MEDZYRA</span>
+                <h4>${escapeHTML(
+                    discussion.prompt ||
+                    "Would you like to discuss this health topic further with MedZyra?"
+                )}</h4>
+                <p>Ask follow-up questions about your result in the way that feels easiest.</p>
+            </div>
+            <div class="interaction-actions" role="group" aria-label="Choose interaction mode">
+                <button type="button" class="interaction-button primary" onclick="continueDiscussion('text')">
+                    <i class="fa-regular fa-message"></i>
+                    Chat by text
+                </button>
+                <button type="button" class="interaction-button" onclick="continueDiscussion('touch')">
+                    <i class="fa-solid fa-hand-pointer"></i>
+                    Tap to choose
+                </button>
+                <button type="button" class="interaction-button" onclick="continueDiscussion('voice')">
+                    <i class="fa-solid fa-microphone"></i>
+                    Use voice
+                </button>
+                <button type="button" class="interaction-button secondary" onclick="skipDiscussion()">
+                    <i class="fa-solid fa-arrow-right"></i>
+                    No, upload documents
+                </button>
+            </div>
+        </div>
+
     `;
 
 
@@ -604,14 +801,85 @@ function showAssessment(
     scrollToBottom();
 
 
-    setTimeout(() => {
-        window.location.href = "../Document/documents.html";
-    }, 1500);
-
-
     updateProgress(
         true
     );
+}
+
+function continueDiscussion(mode) {
+    const prompt = document.querySelector(".discussion-panel");
+
+    if (
+        mode === "voice" &&
+        (!recognition || !window.speechSynthesis)
+    ) {
+        addBotMessage("Voice input is not supported in this browser. You can continue by text or touch.");
+        return;
+    }
+
+    if (prompt) {
+        prompt.classList.add("discussion-selected");
+    }
+
+    discussionMode = mode;
+    voiceConversationActive = mode === "voice";
+    discussionConversation = [];
+
+    currentQuestion = {
+        id: "discussion",
+        type: "text",
+        text: "What would you like to discuss?"
+    };
+
+    addBotMessage(
+        mode === "voice"
+            ? "Voice mode is ready. Tap the microphone and ask your follow-up question."
+            : "Of course. What would you like to discuss about your health summary?"
+    );
+
+    updateInputState();
+
+    if (mode === "touch") {
+        addBotMessage("You can type a question or use the microphone. Touch mode is enabled for choosing quick options when they are available.");
+    }
+
+    if (voiceConversationActive) {
+        speakResponse("Voice mode is ready. Tap the microphone and ask your follow-up question.");
+    }
+}
+
+function shouldEndConversation(message) {
+    return END_CONVERSATION_PATTERNS.some(pattern =>
+        pattern.test(String(message || ""))
+    );
+}
+
+function skipDiscussion() {
+    endDiscussion("You chose to continue to document upload.");
+}
+
+function endDiscussion(message = "Discussion ended. You can upload your documents now.") {
+    discussionMode = null;
+    voiceConversationActive = false;
+    currentQuestion = null;
+
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+
+    if (recognition && voiceActive) {
+        recognition.stop();
+    }
+
+    messageInput.disabled = true;
+    sendButton.disabled = true;
+    voiceButton.disabled = true;
+
+    addBotMessage(message);
+
+    setTimeout(() => {
+        window.location.href = "../Document/documents.html";
+    }, 900);
 }
 
 
@@ -901,6 +1169,27 @@ if (messageInput) {
 
 let recognition = null;
 
+function speakResponse(text) {
+    if (!voiceConversationActive || !window.speechSynthesis) {
+        return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const languageMap = {
+        en: "en-IN",
+        hi: "hi-IN",
+        bn: "bn-IN",
+        ne: "ne-NP"
+    };
+
+    const utterance = new SpeechSynthesisUtterance(String(text));
+    utterance.lang = languageMap[selectedLanguage] || "en-IN";
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+}
+
 
 if (
     "webkitSpeechRecognition" in window ||
@@ -1187,6 +1476,8 @@ function goBack() {
 document.addEventListener(
     "DOMContentLoaded",
     () => {
+
+        loadPatientName();
 
         updateInputState();
 
