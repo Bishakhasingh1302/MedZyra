@@ -173,6 +173,7 @@ function showView(view){
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll("[data-view-jump]").forEach(b=>b.onclick=()=>showView(b.dataset.viewJump));
+document.querySelectorAll("[data-route]").forEach(b=>b.onclick=()=>{window.location.href=b.dataset.route});
 
 $("bookBtn").onclick=()=>{
   const date=$("apptDate").value,time=$("apptTime").value,dept=$("apptDept").value;
@@ -231,5 +232,6 @@ $("assistantBtn").onclick=()=>toast("AI Assistant demo: How can I help with your
 $("addFamilyBtn").onclick=()=>toast("Family member module is ready for integration.");
 
 renderAllergySuggestions();
-if(currentUser)enterDashboard();
+const cameFromRole = new URLSearchParams(window.location.search).get("from") === "role";
+if(currentUser && !cameFromRole)enterDashboard();
 else setAuthMode("login");

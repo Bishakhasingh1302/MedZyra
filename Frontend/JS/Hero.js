@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         loginBtn.addEventListener("click", function () {
 
-            window.location.href = "language.html";
+            window.location.href = "../Language/language.html";
 
         });
 
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         getStartedBtn.addEventListener("click", function () {
 
-            window.location.href = "language.html";
+            window.location.href = "../Language/language.html";
 
         });
 
@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         startJourneyBtn.addEventListener("click", function () {
 
-            window.location.href = "language.html";
+            window.location.href = "../Language/language.html";
 
         });
 

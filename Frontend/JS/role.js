@@ -73,7 +73,7 @@ roleCards.forEach(card => {
                 */
 
                 window.location.href =
-                    "patient-login.html";
+                    "../Authentication/index.html?from=role";
 
 
             } else {
@@ -87,7 +87,7 @@ roleCards.forEach(card => {
                 */
 
                 window.location.href =
-                    "doctor-login.html";
+                    "../Authentication/index.html?from=role";
 
             }
 

@@ -1306,6 +1306,10 @@ function showCompletionCard() {
     messages.appendChild(row);
 
     scrollToBottom();
+
+    setTimeout(() => {
+        window.location.href = "../Document/documents.html";
+    }, 1500);
 }
 
 

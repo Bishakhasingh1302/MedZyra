@@ -441,7 +441,7 @@ function goBack() {
 function continuePage() {
 
     window.location.href =
-        "summary.html";
+        "../Summary/summary.html";
 
 }
 

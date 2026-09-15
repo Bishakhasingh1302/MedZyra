@@ -590,7 +590,7 @@ function continuePage() {
     }
 
 
-     window.location.href = "timeline.html";
+    window.location.href = "../Timeline/timeline.html";
 
 }
 

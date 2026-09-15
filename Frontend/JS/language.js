@@ -103,7 +103,7 @@ continueButton.addEventListener("click", () => {
     setTimeout(() => {
 
         window.location.href =
-            "role.html";
+            "../Role/role.html";
 
     }, 250);
 

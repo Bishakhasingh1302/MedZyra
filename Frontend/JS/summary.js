@@ -208,7 +208,6 @@ documentEvents.forEach(event => {
             ""
         ).toLowerCase();
 
-
     const combined =
         title + " " + file;
 
@@ -709,6 +708,6 @@ function continueToDoctor() {
     */
 
     window.location.href =
-        "consultation.html";
+        "../Authentication/index.html#dashboardScreen";
 
 }
