@@ -82,28 +82,53 @@ const redFlagOverlay =
 const redFlagMessage =
     document.getElementById("redFlagMessage");
 
-        displayQuestion(
-            currentQuestion
-        );
+async function apiRequest(path, options = {}) {
+    const token = localStorage.getItem("medikiosk_token");
+    const response = await fetch(`${API_URL}${path}`, {
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(options.headers || {})
+        },
+        ...options
+    });
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+    if (!response.ok) {
+        const message = typeof data === "string" ? data : data.message;
+        throw new Error(message || `Request failed with status ${response.status}`);
+    }
+    return data;
+}
 
+async function startCheckIn() {
+    if (checkInStarted) {
+        return;
+    }
+
+    checkInStarted = true;
+    startChatBtn.disabled = true;
+    startRow.style.display = "none";
+    showTyping();
+
+    try {
+        const result = await apiRequest("/health-interview/start", {
+            method: "POST",
+            body: JSON.stringify({ language: selectedLanguage })
+        });
+        const data = result.data || result;
+        interviewId = data.interviewId || data.id;
+        displayQuestion(data.question);
         updateProgress();
-
-
     } catch (error) {
-
         hideTyping();
-
         checkInStarted = false;
-
         startChatBtn.disabled = false;
-
-
-        addBotMessage(
-            "Sorry, I couldn't start the health interview. Please try again."
-        );
-
-
-        console.error(error);
+        startRow.style.display = "flex";
+        addBotMessage("Sorry, I couldn't start the health interview. Please try again.");
+        console.error("Start interview error:", error);
     }
 }
 
