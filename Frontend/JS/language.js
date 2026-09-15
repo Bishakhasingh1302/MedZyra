@@ -34,6 +34,10 @@ languageCards.forEach(card => {
         selectedLanguage =
             card.dataset.language;
 
+        if (window.MedZyraI18n) {
+            window.MedZyraI18n.applyLanguage(selectedLanguage);
+        }
+
 
         // Small selection animation
         card.animate(
@@ -69,6 +73,12 @@ continueButton.addEventListener("click", () => {
     localStorage.setItem(
         "medzyraLanguage",
         selectedLanguage
+    );
+
+    window.dispatchEvent(
+        new CustomEvent("medzyra-language-change", {
+            detail: selectedLanguage
+        })
     );
 
 

@@ -32,8 +32,8 @@
         </button>
 
         <div class="header-title">
-            <span>Health Interview</span>
-            <small>AI-assisted patient check-in</small>
+            <span id="headerTitle">Health Interview</span>
+            <small id="headerSubtitle">AI-assisted patient check-in</small>
         </div>
 
         <div class="progress-wrapper">
@@ -42,7 +42,7 @@
                 <div class="progress-fill" id="progressFill"></div>
             </div>
 
-            <span id="stepText">Step 2 of 4</span>
+            <span id="stepText">Question 1</span>
 
         </div>
 
@@ -105,7 +105,7 @@
 
                 <span id="totalQuestions">8</span>
 
-                <small>answered</small>
+                    <small id="answeredLabel">answered</small>
 
             </div>
 
@@ -129,7 +129,7 @@
 
                     <div class="bot-label">
                         MedZyra AI
-                        <span>● Online</span>
+                        <span id="onlineLabel">● Online</span>
                     </div>
 
                     <div class="message bot-message welcome-message">
@@ -140,9 +140,9 @@
 
                         <div>
 
-                            <h3>Let's understand how you're feeling.</h3>
+                            <h3 id="welcomeTitle">Let's understand how you're feeling.</h3>
 
-                            <p>
+                            <p id="welcomeText">
                                 I'll ask you a few simple questions before
                                 your consultation. You can
                                 <strong>type, tap, or speak</strong>
@@ -155,7 +155,7 @@
 
                     <div class="privacy-note">
                         <i class="fa-solid fa-shield-halved"></i>
-                        Your answers are part of your health check-in.
+                        <span id="privacyNote">Your answers are part of your health check-in.</span>
                     </div>
 
                 </div>
@@ -169,7 +169,7 @@
 
                 <button id="startChatBtn" class="start-button" onclick="startCheckIn()">
 
-                    <span>Start check-in</span>
+                        <span id="startLabel">Start check-in</span>
 
                     <i class="fa-solid fa-arrow-right"></i>
 
@@ -310,17 +310,17 @@
 
                 <span>
                     <i class="fa-regular fa-keyboard"></i>
-                    Type
+                    <span id="typeHint">Type</span>
                 </span>
 
                 <span>
                     <i class="fa-solid fa-microphone"></i>
-                    Speak
+                    <span id="speakHint">Speak</span>
                 </span>
 
                 <span>
                     <i class="fa-solid fa-hand-pointer"></i>
-                    Tap options
+                    <span id="tapHint">Tap options</span>
                 </span>
 
             </div>
@@ -334,6 +334,7 @@
 
 <!-- ================= JAVASCRIPT ================= -->
 
+<script src="../JS/i18n.js"></script>
 <script src="../JS/health-chat.js"></script>
 
 </body>

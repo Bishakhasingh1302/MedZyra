@@ -27,10 +27,16 @@ const user =
    Selected language
 */
 
-const language =
+const storedLanguage =
     localStorage.getItem(
         "medzyraLanguage"
-    ) || "en";
+    ) || "english";
+
+const language = {
+    english: "en",
+    bengali: "bn",
+    hindi: "hi"
+}[storedLanguage] || storedLanguage;
 
 
 
