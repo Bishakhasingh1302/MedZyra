@@ -32,6 +32,9 @@ const bottomSummary = document.getElementById("bottomSummary");
 
 let uploadedFiles = [];
 
+const DOCUMENT_API_URL =
+    "http://localhost:5000/api/documents/ocr";
+
 
 function saveTimelineEvent(event) {
 
@@ -174,9 +177,9 @@ function handleFiles(files) {
         /* Check file type */
 
         const allowedTypes = [
-            "application/pdf",
             "image/jpeg",
-            "image/png"
+            "image/png",
+            "image/webp"
         ];
 
 
@@ -184,7 +187,7 @@ function handleFiles(files) {
 
             alert(
                 file.name +
-                " is not supported.\n\nPlease upload PDF, JPG or PNG."
+                " is not supported.\n\nPlease upload JPG, PNG or WEBP."
             );
 
             return;
@@ -268,15 +271,7 @@ function displayFile(file) {
     fileIcon.className = "file-icon";
 
 
-    if (file.type === "application/pdf") {
-
-        fileIcon.textContent = "📕";
-
-    } else {
-
-        fileIcon.textContent = "🖼️";
-
-    }
+    fileIcon.textContent = "🖼️";
 
 
     const textContainer =
@@ -375,69 +370,64 @@ function updateEmptyState() {
    PROCESS DOCUMENT
 ========================================== */
 
-function processDocument(file) {
-
-    /* Show progress */
+async function processDocument(file) {
 
     uploadStatus.style.display = "block";
+    progressFill.style.width = "15%";
+    progressPercent.textContent = "15%";
+    statusMessage.textContent = "Uploading document...";
 
-    let progress = 0;
+    const formData = new FormData();
+    formData.append("file", file);
 
+    try {
+        const token =
+            localStorage.getItem("medikiosk_token") ||
+            localStorage.getItem("token");
 
-    const interval =
-        setInterval(() => {
+        if (!token) {
+            throw new Error("Please sign in before uploading a document.");
+        }
 
-            progress += 5;
+        statusMessage.textContent = "Reading document...";
+        progressFill.style.width = "45%";
+        progressPercent.textContent = "45%";
 
+        const response = await fetch(DOCUMENT_API_URL, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`
+            },
+            body: formData
+        });
 
-            progressFill.style.width =
-                progress + "%";
+        const payload = await response.json().catch(() => ({}));
 
+        if (!response.ok || !payload.success) {
+            throw new Error(
+                payload.message || "Unable to analyze the document."
+            );
+        }
 
-            progressPercent.textContent =
-                progress + "%";
+        const extractedText =
+            payload.extractedText ||
+            payload.data?.extractedText ||
+            "No readable text was found in this document.";
 
-
-            if (progress < 40) {
-
-                statusMessage.textContent =
-                    "Uploading document...";
-
-            }
-
-            else if (progress < 75) {
-
-                statusMessage.textContent =
-                    "Reading document...";
-
-            }
-
-            else {
-
-                statusMessage.textContent =
-                    "Preparing AI analysis...";
-
-            }
-
-
-            if (progress >= 100) {
-
-                clearInterval(interval);
-
-                statusMessage.textContent =
-                    "Upload complete";
-
-
-                setTimeout(() => {
-
-                    showAISummary(file);
-
-                }, 500);
-
-            }
-
-        }, 60);
-
+        progressFill.style.width = "100%";
+        progressPercent.textContent = "100%";
+        statusMessage.textContent = "Document analyzed successfully";
+        showAISummary(file, extractedText);
+    } catch (error) {
+        progressFill.style.width = "0%";
+        progressPercent.textContent = "0%";
+        statusMessage.textContent = error.message;
+        summaryEmpty.style.display = "none";
+        processing.style.display = "none";
+        summaryResult.style.display = "block";
+        document.getElementById("summaryText").textContent =
+            error.message;
+    }
 }
 
 
@@ -445,7 +435,7 @@ function processDocument(file) {
    AI SUMMARY
 ========================================== */
 
-function showAISummary(file) {
+function showAISummary(file, extractedText) {
 
     /* Hide empty state */
 
@@ -460,27 +450,15 @@ function showAISummary(file) {
     summaryResult.style.display = "none";
 
 
-    /* Simulate AI processing */
+    processing.style.display = "none";
+    summaryResult.style.display = "block";
+    bottomSummary.style.display = "block";
 
-    setTimeout(() => {
+    generateDemoSummary(file, extractedText);
 
-        processing.style.display = "none";
-
-
-        summaryResult.style.display = "block";
-
-
-        bottomSummary.style.display = "block";
-
-
-        generateDemoSummary(file);
-
-        saveTimelineEvent(
-            createTimelineEvent("ai", file)
-        );
-
-
-    }, 1800);
+    saveTimelineEvent(
+        createTimelineEvent("ai", file)
+    );
 
 }
 
@@ -489,7 +467,7 @@ function showAISummary(file) {
    DEMO SUMMARY
 ========================================== */
 
-function generateDemoSummary(file) {
+function generateDemoSummary(file, extractedText) {
 
     document.getElementById(
         "documentName"
@@ -499,39 +477,37 @@ function generateDemoSummary(file) {
     document.getElementById(
         "summaryText"
     ).textContent =
-        "The uploaded document has been analyzed and the important information has been organized. The system identified medical details, possible medications and investigation-related information from the document.";
+        extractedText;
 
 
     document.getElementById(
         "documentType"
     ).textContent =
-        file.type === "application/pdf"
-            ? "PDF Medical Document"
-            : "Medical Image";
+        "Medical Image";
 
 
     document.getElementById(
         "bottomSummaryText"
     ).textContent =
-        "This document contains patient-related medical information. MedZyra has organized the available information into a simple summary so that the patient and doctor can review it more easily. In the production version, this section will be generated directly from OCR and AI analysis of the uploaded document.";
+        extractedText;
 
 
     document.getElementById(
         "diagnosis"
     ).textContent =
-        "Detected from document";
+        extractedText || "Not detected";
 
 
     document.getElementById(
         "medication"
     ).textContent =
-        "Detected from document";
+        extractedText || "Not detected";
 
 
     document.getElementById(
         "tests"
     ).textContent =
-        "Detected from document";
+        extractedText || "Not detected";
 
 }
 
