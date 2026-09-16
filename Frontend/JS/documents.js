@@ -1,618 +1,137 @@
-/* ==========================================
-   MEDZYRA DOCUMENT UPLOAD SYSTEM
-========================================== */
-
-
-/* Elements */
-
+const API_BASE_URL = "http://localhost:5000/api";
 const fileInput = document.getElementById("fileInput");
-
 const browseButton = document.getElementById("browseButton");
-
 const dropZone = document.getElementById("dropZone");
-
 const fileList = document.getElementById("fileList");
-
 const uploadStatus = document.getElementById("uploadStatus");
-
 const statusMessage = document.getElementById("statusMessage");
-
 const progressFill = document.getElementById("progressFill");
-
 const progressPercent = document.getElementById("progressPercent");
-
 const summaryEmpty = document.getElementById("summaryEmpty");
-
 const processing = document.getElementById("processing");
-
 const summaryResult = document.getElementById("summaryResult");
-
 const bottomSummary = document.getElementById("bottomSummary");
-
-
 let uploadedFiles = [];
 
-const DOCUMENT_API_URL =
-    "http://localhost:5000/api/documents/ocr";
-
-
-function saveTimelineEvent(event) {
-
-    const events =
-        JSON.parse(
-            localStorage.getItem("medzyraTimeline")
-        ) || [];
-
-
-    events.push(event);
-
-    localStorage.setItem(
-        "medzyraTimeline",
-        JSON.stringify(events)
-    );
-
+function token() {
+    return localStorage.getItem("medikiosk_token") || localStorage.getItem("token");
 }
 
-
-function saveDocumentRecord(file) {
-
-    const documents =
-        JSON.parse(
-            localStorage.getItem("medzyraDocuments")
-        ) || [];
-
-
-    documents.push({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        uploadedAt: new Date().toISOString()
-    });
-
-
-    localStorage.setItem(
-        "medzyraDocuments",
-        JSON.stringify(documents)
-    );
-
+function setProgress(percent, message) {
+    uploadStatus.style.display = "block";
+    progressFill.style.width = `${percent}%`;
+    progressPercent.textContent = `${percent}%`;
+    statusMessage.textContent = message;
 }
 
-
-function createTimelineEvent(type, file) {
-
-    const now = new Date();
-
-
-    return {
+function saveTimelineEvent(type, file) {
+    const events = JSON.parse(localStorage.getItem("medzyraTimeline") || "[]");
+    events.push({
         source: "real",
         type,
-        title: type === "document"
-            ? "Medical document uploaded"
-            : "AI document analysis completed",
-        description: type === "document"
-            ? file.name + " was added to your medical records."
-            : "Important information was extracted from " + file.name + ".",
+        title: type === "document" ? "Medical document uploaded" : "AI document analysis completed",
+        description: `${file.name} was ${type === "document" ? "added to your medical records" : "analyzed"}.`,
         icon: type === "document" ? "📄" : "✨",
-        time: now.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        }),
-        date: now.toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        date: new Date().toLocaleDateString(),
         file: file.name
-    };
-
+    });
+    localStorage.setItem("medzyraTimeline", JSON.stringify(events));
 }
 
+function displayFile(file) {
+    fileList.querySelector(".empty-files")?.remove();
+    const item = document.createElement("div");
+    item.className = "file-item";
+    item.innerHTML = `<div class="file-info"><div class="file-icon">🖼️</div><div><div class="file-name"></div><span class="file-size"></span></div></div>`;
+    item.querySelector(".file-name").textContent = file.name;
+    item.querySelector(".file-size").textContent = `${formatFileSize(file.size)} • Processing`;
+    fileList.prepend(item);
+}
 
-/* ==========================================
-   BROWSE BUTTON
-========================================== */
-
-browseButton.addEventListener("click", function () {
-
-    fileInput.click();
-
-});
-
-
-/* ==========================================
-   FILE INPUT
-========================================== */
-
-fileInput.addEventListener("change", function () {
-
-    const files = Array.from(fileInput.files);
-
-    handleFiles(files);
-
-});
-
-
-/* ==========================================
-   DRAG AND DROP
-========================================== */
-
-dropZone.addEventListener("dragover", function (event) {
-
-    event.preventDefault();
-
-    dropZone.classList.add("dragover");
-
-});
-
-
-dropZone.addEventListener("dragleave", function () {
-
-    dropZone.classList.remove("dragover");
-
-});
-
-
-dropZone.addEventListener("drop", function (event) {
-
-    event.preventDefault();
-
-    dropZone.classList.remove("dragover");
-
-    const files = Array.from(event.dataTransfer.files);
-
-    handleFiles(files);
-
-});
-
-
-/* ==========================================
-   HANDLE FILES
-========================================== */
-
-function handleFiles(files) {
-
-    if (files.length === 0) {
+async function processDocument(file) {
+    if (!token()) {
+        setProgress(0, "Please sign in before uploading a document.");
         return;
     }
 
-
-    files.forEach(file => {
-
-        /* Check file type */
-
-        const allowedTypes = [
-            "image/jpeg",
-            "image/png",
-            "image/webp"
-        ];
-
-
-        if (!allowedTypes.includes(file.type)) {
-
-            alert(
-                file.name +
-                " is not supported.\n\nPlease upload JPG, PNG or WEBP."
-            );
-
-            return;
-        }
-
-
-        /* Check size */
-
-        const maxSize = 10 * 1024 * 1024;
-
-
-        if (file.size > maxSize) {
-
-            alert(
-                file.name +
-                " is larger than 10MB."
-            );
-
-            return;
-        }
-
-
-        /* Add file */
-
-        uploadedFiles.push(file);
-
-        saveDocumentRecord(file);
-
-        saveTimelineEvent(
-            createTimelineEvent("document", file)
-        );
-
-        displayFile(file);
-
-
-        /* Start processing */
-
-        processDocument(file);
-
-    });
-
-
-    updateEmptyState();
-
-}
-
-
-/* ==========================================
-   DISPLAY FILE
-========================================== */
-
-function displayFile(file) {
-
-    const emptyMessage =
-        fileList.querySelector(".empty-files");
-
-
-    if (emptyMessage) {
-        emptyMessage.remove();
-    }
-
-
-    const fileItem =
-        document.createElement("div");
-
-
-    fileItem.className = "file-item";
-
-
-    const fileInfo =
-        document.createElement("div");
-
-
-    fileInfo.className = "file-info";
-
-
-    const fileIcon =
-        document.createElement("div");
-
-
-    fileIcon.className = "file-icon";
-
-
-    fileIcon.textContent = "🖼️";
-
-
-    const textContainer =
-        document.createElement("div");
-
-
-    const fileName =
-        document.createElement("div");
-
-
-    fileName.className = "file-name";
-
-    fileName.textContent = file.name;
-
-
-    const fileSize =
-        document.createElement("span");
-
-
-    fileSize.className = "file-size";
-
-    fileSize.textContent =
-        formatFileSize(file.size) +
-        " • Uploaded just now";
-
-
-    textContainer.appendChild(fileName);
-
-    textContainer.appendChild(fileSize);
-
-
-    fileInfo.appendChild(fileIcon);
-
-    fileInfo.appendChild(textContainer);
-
-
-    /* Remove */
-
-    const removeButton =
-        document.createElement("button");
-
-
-    removeButton.className = "remove-file";
-
-    removeButton.innerHTML = "×";
-
-
-    removeButton.addEventListener(
-        "click",
-        function () {
-
-            fileItem.remove();
-
-            uploadedFiles =
-                uploadedFiles.filter(
-                    uploadedFile =>
-                        uploadedFile !== file
-                );
-
-            updateEmptyState();
-
-        }
-    );
-
-
-    fileItem.appendChild(fileInfo);
-
-    fileItem.appendChild(removeButton);
-
-
-    fileList.prepend(fileItem);
-
-}
-
-
-/* ==========================================
-   EMPTY STATE
-========================================== */
-
-function updateEmptyState() {
-
-    if (uploadedFiles.length === 0) {
-
-        fileList.innerHTML = `
-            <div class="empty-files">
-                No documents uploaded yet.
-            </div>
-        `;
-
-    }
-
-}
-
-
-/* ==========================================
-   PROCESS DOCUMENT
-========================================== */
-
-async function processDocument(file) {
-
-    uploadStatus.style.display = "block";
-    progressFill.style.width = "15%";
-    progressPercent.textContent = "15%";
-    statusMessage.textContent = "Uploading document...";
-
+    setProgress(15, "Uploading document...");
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-        const token =
-            localStorage.getItem("medikiosk_token") ||
-            localStorage.getItem("token");
-
-        if (!token) {
-            throw new Error("Please sign in before uploading a document.");
-        }
-
-        statusMessage.textContent = "Reading document...";
-        progressFill.style.width = "45%";
-        progressPercent.textContent = "45%";
-
-        const response = await fetch(DOCUMENT_API_URL, {
+        setProgress(45, "Reading document...");
+        const response = await fetch(`${API_BASE_URL}/documents/ocr`, {
             method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`
-            },
+            headers: { Authorization: `Bearer ${token()}` },
             body: formData
         });
-
         const payload = await response.json().catch(() => ({}));
-
         if (!response.ok || !payload.success) {
-            throw new Error(
-                payload.message || "Unable to analyze the document."
-            );
+            throw new Error(payload.message || "Unable to analyze the document.");
         }
 
-        const extractedText =
-            payload.extractedText ||
-            payload.data?.extractedText ||
-            "No readable text was found in this document.";
-
-        progressFill.style.width = "100%";
-        progressPercent.textContent = "100%";
-        statusMessage.textContent = "Document analyzed successfully";
-        showAISummary(file, extractedText);
+        const extractedText = payload.extractedText || payload.data?.extractedText || "No readable text was found.";
+        setProgress(100, "Document analyzed successfully");
+        showSummary(file, extractedText);
+        saveTimelineEvent("ai", file);
     } catch (error) {
-        progressFill.style.width = "0%";
-        progressPercent.textContent = "0%";
-        statusMessage.textContent = error.message;
+        setProgress(0, error.message);
         summaryEmpty.style.display = "none";
         processing.style.display = "none";
         summaryResult.style.display = "block";
-        document.getElementById("summaryText").textContent =
-            error.message;
+        document.getElementById("summaryText").textContent = error.message;
+        document.getElementById("extractedText").textContent = "";
     }
 }
 
+function handleFiles(files) {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    files.forEach(file => {
+        if (!allowedTypes.includes(file.type)) {
+            alert(`${file.name} is not supported. Please upload JPG, PNG or WEBP.`);
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            alert(`${file.name} is larger than 10MB.`);
+            return;
+        }
+        uploadedFiles.push(file);
+        displayFile(file);
+        saveTimelineEvent("document", file);
+        processDocument(file);
+    });
+}
 
-/* ==========================================
-   AI SUMMARY
-========================================== */
-
-function showAISummary(file, extractedText) {
-
-    /* Hide empty state */
-
+function showSummary(file, extractedText) {
     summaryEmpty.style.display = "none";
-
-
-    /* Show processing */
-
-    processing.style.display = "flex";
-
-
-    summaryResult.style.display = "none";
-
-
     processing.style.display = "none";
     summaryResult.style.display = "block";
     bottomSummary.style.display = "block";
-
-    generateDemoSummary(file, extractedText);
-
-    saveTimelineEvent(
-        createTimelineEvent("ai", file)
-    );
-
+    document.getElementById("documentName").textContent = file.name;
+    document.getElementById("summaryText").textContent = extractedText;
+    document.getElementById("extractedText").textContent = extractedText;
+    document.getElementById("bottomSummaryText").textContent = extractedText;
+    document.getElementById("documentType").textContent = "Medical Image";
+    document.getElementById("diagnosis").textContent = "See extracted text";
+    document.getElementById("medication").textContent = "See extracted text";
+    document.getElementById("tests").textContent = "See extracted text";
 }
-
-
-/* ==========================================
-   DEMO SUMMARY
-========================================== */
-
-function generateDemoSummary(file, extractedText) {
-
-    document.getElementById(
-        "documentName"
-    ).textContent = file.name;
-
-
-    document.getElementById(
-        "summaryText"
-    ).textContent =
-        extractedText;
-
-
-    document.getElementById(
-        "documentType"
-    ).textContent =
-        "Medical Image";
-
-
-    document.getElementById(
-        "bottomSummaryText"
-    ).textContent =
-        extractedText;
-
-
-    document.getElementById(
-        "diagnosis"
-    ).textContent =
-        extractedText || "Not detected";
-
-
-    document.getElementById(
-        "medication"
-    ).textContent =
-        extractedText || "Not detected";
-
-
-    document.getElementById(
-        "tests"
-    ).textContent =
-        extractedText || "Not detected";
-
-}
-
-
-/* ==========================================
-   FILE SIZE
-========================================== */
 
 function formatFileSize(bytes) {
-
-    if (bytes < 1024) {
-
-        return bytes + " B";
-
-    }
-
-
-    if (bytes < 1024 * 1024) {
-
-        return (
-            (bytes / 1024).toFixed(1) +
-            " KB"
-        );
-
-    }
-
-
-    return (
-        (bytes / (1024 * 1024)).toFixed(1) +
-        " MB"
-    );
-
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-
-/* ==========================================
-   NAVIGATION
-========================================== */
-
-function goBack() {
-
-    window.history.back();
-
-}
-
-
-function continuePage() {
-
-    if (uploadedFiles.length === 0) {
-
-        alert(
-            "Please upload at least one medical document before continuing."
-        );
-
-        return;
-    }
-
-
-    window.location.href = "../Timeline/timeline.html";
-
-}
-
-/* ==========================================
-   RIPPLE EFFECT
-========================================== */
-
-document.addEventListener("DOMContentLoaded", function () {
-    
-    // Add ripple effect to everything in the web page
-    const allElements = document.querySelectorAll("body *");
-    
-    allElements.forEach(element => {
-        element.addEventListener("click", function (e) {
-            
-            e.stopPropagation();
-
-            const computedStyle = window.getComputedStyle(element);
-            if (computedStyle.position === 'static') {
-                element.style.position = 'relative';
-            }
-            
-            // Only apply overflow hidden if it's not the body or html to avoid breaking scroll
-            if (element.tagName !== 'BODY' && element.tagName !== 'HTML') {
-                element.style.overflow = 'hidden';
-            }
-
-            const ripple = document.createElement("span");
-            ripple.classList.add("ripple");
-
-            const rect = element.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            
-            const left = e.clientX - rect.left - size / 2;
-            const top = e.clientY - rect.top - size / 2;
-
-            ripple.style.width = ripple.style.height = `${size}px`;
-            ripple.style.left = `${left}px`;
-            ripple.style.top = `${top}px`;
-
-            element.appendChild(ripple);
-
-            setTimeout(() => {
-                ripple.remove();
-            }, 600);
-            
-        });
-    });
+browseButton.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", event => handleFiles(Array.from(event.target.files)));
+dropZone.addEventListener("dragover", event => { event.preventDefault(); dropZone.classList.add("dragover"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", event => {
+    event.preventDefault();
+    dropZone.classList.remove("dragover");
+    handleFiles(Array.from(event.dataTransfer.files));
 });
+
+function goBack() { window.history.back(); }
+function continuePage() { window.location.href = "../Timeline/timeline.html"; }

@@ -8,9 +8,10 @@ const AUTH_ENDPOINTS = {
 
 async function apiRequest(path, options = {}){
   const token = localStorage.getItem("medikiosk_token");
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : {"Content-Type": "application/json"}),
       ...(token ? {Authorization: `Bearer ${token}`} : {}),
       ...(options.headers || {})
     },
@@ -210,7 +211,7 @@ $("registerForm").addEventListener("submit",async e=>{
 
 function enterDashboard(){
   $("authScreen").classList.add("hidden");$("dashboardScreen").classList.remove("hidden");
-  renderUser(); showView("home");
+  renderUser(); showView("home"); loadDocuments();
 }
 function renderUser(){
   if(!currentUser)return;
@@ -259,17 +260,58 @@ function renderAppointments(){
 }
 window.deleteAppointment=id=>{currentUser.appointments=currentUser.appointments.filter(a=>a.id!==id);syncCurrent();renderAppointments();toast("Appointment cancelled.")};
 
-$("docInput").onchange=e=>{
-  const file=e.target.files[0];if(!file)return;
-  currentUser.documents.push({id:Date.now(),name:file.name,size:(file.size/1024).toFixed(1)+" KB",date:new Date().toLocaleDateString()});
-  syncCurrent();renderDocuments();e.target.value="";toast("Document added to your records.");
+$("docInput").onchange=async e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  if(file.size > 10 * 1024 * 1024){toast("Files must be smaller than 10MB.");e.target.value="";return;}
+  try{
+    const formData=new FormData();
+    formData.append("document",file);
+    toast("Uploading document...");
+    const uploadResult=await apiRequest("/documents/upload",{method:"POST",body:formData});
+    const uploaded=uploadResult.document;
+    currentUser.documents=[uploaded,...(currentUser.documents||[])];
+    renderDocuments();
+    toast("Document uploaded successfully.");
+
+    if(file.type.startsWith("image/")){
+      toast("Analyzing document...");
+      await apiRequest(`/documents/${uploaded.id}/process`,{method:"POST"});
+      toast("Document analyzed successfully.");
+      await loadDocuments();
+    }
+  }catch(error){
+    toast(error.message || "Document upload failed.");
+  }finally{
+    e.target.value="";
+  }
 };
+async function loadDocuments(){
+  try{
+    const result=await apiRequest("/documents/recent");
+    currentUser.documents=result.documents || [];
+    renderDocuments();
+  }catch(error){
+    if(error.message !== "Authorization token required") toast(error.message || "Unable to load documents.");
+  }
+}
 function renderDocuments(){
   const list=$("documentList");
   if(!currentUser?.documents?.length){list.innerHTML="";return}
-  list.innerHTML=currentUser.documents.map(d=>`<div class="list-item"><div><b>▤ ${escapeHTML(d.name)}</b><small>${d.size} • Added ${d.date}</small></div><button class="delete-btn" onclick="deleteDocument(${d.id})">Remove</button></div>`).join("");
+  list.innerHTML=currentUser.documents.map(d=>`<div class="list-item"><div><b>▤ ${escapeHTML(d.file_name || d.name)}</b><small>${formatDocumentSize(d.file_size || 0)} • ${escapeHTML(d.status || "uploaded")}</small></div><button class="delete-btn" onclick="deleteDocument('${d.id}')">Remove</button></div>`).join("");
 }
-window.deleteDocument=id=>{currentUser.documents=currentUser.documents.filter(d=>d.id!==id);syncCurrent();renderDocuments();toast("Document removed.")};
+function formatDocumentSize(bytes){
+  if(!bytes)return "Size unavailable";
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+window.deleteDocument=async id=>{
+  try{
+    await apiRequest(`/documents/${id}`,{method:"DELETE"});
+    currentUser.documents=currentUser.documents.filter(d=>d.id!==id);
+    renderDocuments();
+    toast("Document removed.");
+  }catch(error){toast(error.message || "Unable to remove document.");}
+};
 
 $("addMedBtn").onclick=()=>{
   const name=$("medName").value.trim(),dose=$("medDose").value.trim(),time=$("medTime").value;
