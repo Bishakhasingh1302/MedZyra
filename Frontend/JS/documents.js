@@ -1,7 +1,11 @@
 /* ==========================================
    MEDZYRA DOCUMENT UPLOAD SYSTEM
 ========================================== */
+// Backend configuration
+const API_BASE_URL = "http://localhost:5000/api";
 
+// JWT token received after login
+const AUTH_TOKEN = localStorage.getItem("token");
 
 /* Elements */
 
