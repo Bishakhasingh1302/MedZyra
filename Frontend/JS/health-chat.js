@@ -25,7 +25,197 @@ let checkInStarted = false;
 
 let voiceActive = false;
 
-let selectedLanguage = "en";
+const savedInterfaceLanguage =
+    localStorage.getItem("medzyraLanguage") || "english";
+
+let selectedLanguage =
+    savedInterfaceLanguage === "bengali"
+        ? "bn"
+        : savedInterfaceLanguage === "hindi"
+            ? "hi"
+            : savedInterfaceLanguage === "nepali"
+                ? "ne"
+            : "en";
+
+let discussionMode = null;
+
+let discussionConversation = [];
+
+let voiceConversationActive = false;
+
+const UI_TRANSLATIONS = {
+    en: {
+        interview: "Health Interview",
+        subtitle: "AI-assisted patient check-in",
+        step: "Question",
+        answered: "answered",
+        welcomeTitle: "Let's understand how you're feeling.",
+        welcomeText: "I'll ask you a few simple questions before your consultation. You can type, tap, or speak your answers.",
+        privacy: "Your answers are part of your health check-in.",
+        start: "Start check-in",
+        inputPlaceholder: "Type your answer...",
+        type: "Type",
+        speak: "Speak",
+        tap: "Tap options",
+        online: "Online",
+        complete: "Health Check-in Complete",
+        categories: "Possible symptom categories",
+        doctor: "Recommended healthcare professional",
+        nextStep: "Next step",
+        discussPrompt: "Would you like to discuss this health topic further with MedZyra?",
+        discussHint: "Ask follow-up questions about your result in the way that feels easiest.",
+        chatText: "Chat by text",
+        tapChoose: "Tap to choose",
+        useVoice: "Use voice",
+        uploadDocuments: "No, upload documents",
+        discussionReady: "Of course. What would you like to discuss about your health summary?",
+        touchReady: "You can type a question or use the microphone. Touch mode is ready for choosing quick options.",
+        voiceReady: "Voice mode is ready. Tap the microphone and ask your follow-up question.",
+        languageChanged: "Language changed. The new language will be used for the next questions.",
+        goDocuments: "Discussion ended. You can upload your documents now.",
+        hello: "Hello",
+        discussionError: "Sorry, I couldn't continue the discussion. Please try again."
+    },
+    hi: {
+        interview: "स्वास्थ्य साक्षात्कार",
+        subtitle: "AI-सहायता प्राप्त स्वास्थ्य जांच",
+        step: "प्रश्न",
+        answered: "उत्तर दिए",
+        welcomeTitle: "आइए समझते हैं कि आप कैसा महसूस कर रहे हैं।",
+        welcomeText: "मैं आपसे परामर्श से पहले कुछ आसान सवाल पूछूंगा। आप टाइप, टैप या बोलकर जवाब दे सकते हैं।",
+        privacy: "आपके जवाब आपकी स्वास्थ्य जांच का हिस्सा हैं।",
+        start: "जांच शुरू करें",
+        inputPlaceholder: "अपना जवाब लिखें...",
+        type: "टाइप",
+        speak: "बोलें",
+        tap: "विकल्प चुनें",
+        online: "ऑनलाइन",
+        complete: "स्वास्थ्य जांच पूरी हुई",
+        categories: "संभावित लक्षण श्रेणियां",
+        doctor: "अनुशंसित स्वास्थ्य विशेषज्ञ",
+        nextStep: "अगला कदम",
+        discussPrompt: "क्या आप इस स्वास्थ्य विषय पर MedZyra से और चर्चा करना चाहेंगे?",
+        discussHint: "अपने परिणाम के बारे में आसान तरीके से सवाल पूछें।",
+        chatText: "टेक्स्ट से चैट",
+        tapChoose: "टैप करके चुनें",
+        useVoice: "आवाज का उपयोग करें",
+        uploadDocuments: "नहीं, दस्तावेज अपलोड करें",
+        discussionReady: "बिल्कुल। आप अपने स्वास्थ्य सारांश के बारे में क्या चर्चा करना चाहेंगे?",
+        touchReady: "आप सवाल लिख सकते हैं या माइक्रोफोन का उपयोग कर सकते हैं। टच मोड विकल्प चुनने के लिए तैयार है।",
+        voiceReady: "वॉयस मोड तैयार है। माइक्रोफोन दबाकर अपना सवाल पूछें।",
+        languageChanged: "भाषा बदल गई है। अगले सवाल नई भाषा में होंगे।",
+        goDocuments: "चर्चा समाप्त हुई। अब आप अपने दस्तावेज अपलोड कर सकते हैं।",
+        hello: "नमस्ते",
+        discussionError: "क्षमा करें, चर्चा जारी नहीं रह सकी। कृपया फिर प्रयास करें।"
+    },
+    bn: {
+        interview: "স্বাস্থ্য সাক্ষাৎকার",
+        subtitle: "AI সহায়তায় স্বাস্থ্য পরীক্ষা",
+        step: "প্রশ্ন",
+        answered: "উত্তর দেওয়া হয়েছে",
+        welcomeTitle: "আপনি কেমন অনুভব করছেন তা বুঝে নিই।",
+        welcomeText: "পরামর্শের আগে আমি আপনাকে কয়েকটি সহজ প্রশ্ন করব। আপনি টাইপ, ট্যাপ বা কথা বলে উত্তর দিতে পারেন।",
+        privacy: "আপনার উত্তর স্বাস্থ্য পরীক্ষার অংশ।",
+        start: "পরীক্ষা শুরু করুন",
+        inputPlaceholder: "আপনার উত্তর লিখুন...",
+        type: "টাইপ",
+        speak: "বলুন",
+        tap: "বিকল্পে ট্যাপ করুন",
+        online: "অনলাইন",
+        complete: "স্বাস্থ্য পরীক্ষা সম্পন্ন",
+        categories: "সম্ভাব্য উপসর্গের ধরন",
+        doctor: "প্রস্তাবিত স্বাস্থ্যকর্মী",
+        nextStep: "পরবর্তী ধাপ",
+        discussPrompt: "আপনি কি MedZyra-এর সঙ্গে এই স্বাস্থ্য বিষয়টি আরও আলোচনা করতে চান?",
+        discussHint: "আপনার ফলাফল সম্পর্কে সহজভাবে প্রশ্ন করুন।",
+        chatText: "টেক্সটে চ্যাট",
+        tapChoose: "ট্যাপ করে বেছে নিন",
+        useVoice: "ভয়েস ব্যবহার করুন",
+        uploadDocuments: "না, নথি আপলোড করুন",
+        discussionReady: "অবশ্যই। আপনার স্বাস্থ্য সারাংশ নিয়ে কী আলোচনা করতে চান?",
+        touchReady: "আপনি প্রশ্ন টাইপ করতে বা মাইক্রোফোন ব্যবহার করতে পারেন। টাচ মোড প্রস্তুত।",
+        voiceReady: "ভয়েস মোড প্রস্তুত। মাইক্রোফোনে ট্যাপ করে প্রশ্ন করুন।",
+        languageChanged: "ভাষা পরিবর্তন হয়েছে। পরের প্রশ্নগুলো নতুন ভাষায় হবে।",
+        goDocuments: "আলোচনা শেষ হয়েছে। এখন আপনি নথি আপলোড করতে পারেন।",
+        hello: "নমস্কার",
+        discussionError: "দুঃখিত, আলোচনা চালিয়ে যাওয়া যায়নি। আবার চেষ্টা করুন।"
+    },
+    ne: {
+        interview: "स्वास्थ्य अन्तर्वार्ता",
+        subtitle: "AI-सहायता प्राप्त स्वास्थ्य जाँच",
+        step: "प्रश्न",
+        answered: "उत्तर दिइयो",
+        welcomeTitle: "तपाईंलाई कस्तो महसुस भइरहेको छ बुझौं।",
+        welcomeText: "परामर्शअघि म केही सरल प्रश्न सोध्नेछु। तपाईं टाइप, ट्याप वा बोलेर उत्तर दिन सक्नुहुन्छ।",
+        privacy: "तपाईंका उत्तर स्वास्थ्य जाँचको हिस्सा हुन्।",
+        start: "जाँच सुरु गर्नुहोस्",
+        inputPlaceholder: "आफ्नो उत्तर लेख्नुहोस्...",
+        type: "टाइप",
+        speak: "बोल्नुहोस्",
+        tap: "विकल्प छान्नुहोस्",
+        online: "अनलाइन",
+        complete: "स्वास्थ्य जाँच पूरा भयो",
+        categories: "सम्भावित लक्षणका प्रकार",
+        doctor: "सिफारिस गरिएको स्वास्थ्यकर्मी",
+        nextStep: "अर्को कदम",
+        discussPrompt: "के तपाईं MedZyra सँग यो स्वास्थ्य विषयमा थप छलफल गर्न चाहनुहुन्छ?",
+        discussHint: "आफ्नो नतिजाबारे सजिलो तरिकाले प्रश्न सोध्नुहोस्।",
+        chatText: "टेक्स्टमा कुराकानी",
+        tapChoose: "ट्याप गरेर छान्नुहोस्",
+        useVoice: "आवाज प्रयोग गर्नुहोस्",
+        uploadDocuments: "होइन, कागजात अपलोड गर्नुहोस्",
+        discussionReady: "अवश्य। तपाईं आफ्नो स्वास्थ्य सारांशबारे के छलफल गर्न चाहनुहुन्छ?",
+        touchReady: "तपाईं प्रश्न टाइप गर्न वा माइक्रोफोन प्रयोग गर्न सक्नुहुन्छ। टच मोड तयार छ।",
+        voiceReady: "आवाज मोड तयार छ। माइक्रोफोन थिचेर प्रश्न सोध्नुहोस्।",
+        languageChanged: "भाषा परिवर्तन भयो। अर्को प्रश्न नयाँ भाषामा हुनेछ।",
+        goDocuments: "छलफल समाप्त भयो। अब तपाईं कागजात अपलोड गर्न सक्नुहुन्छ।",
+        hello: "नमस्ते",
+        discussionError: "माफ गर्नुहोस्, छलफल जारी राख्न सकिएन। कृपया फेरि प्रयास गर्नुहोस्।"
+    }
+};
+
+function t(key) {
+    return UI_TRANSLATIONS[selectedLanguage]?.[key] || UI_TRANSLATIONS.en[key] || key;
+}
+
+function applyInterfaceTranslations() {
+    const textMap = {
+        headerTitle: "interview",
+        headerSubtitle: "subtitle",
+        stepLabel: "step",
+        answeredLabel: "answered",
+        welcomeTitle: "welcomeTitle",
+        welcomeText: "welcomeText",
+        privacyNote: "privacy",
+        startLabel: "start",
+        typeHint: "type",
+        speakHint: "speak",
+        tapHint: "tap",
+        onlineLabel: "online"
+    };
+
+    Object.entries(textMap).forEach(([id, key]) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = t(key);
+        }
+    });
+
+    if (messageInput) {
+        messageInput.placeholder = t("inputPlaceholder");
+    }
+}
+
+const END_CONVERSATION_PATTERNS = [
+    /\bend (the )?conversation\b/i,
+    /\bstop (the )?conversation\b/i,
+    /\bclose (the )?conversation\b/i,
+    /\bfinish (the )?conversation\b/i,
+    /\bi('m| am) done\b/i,
+    /\bthat('s| is) all\b/i,
+    /\bno more questions\b/i,
+    /\bgoodbye\b/i
+];
 
 
 /* =========================================================
@@ -71,6 +261,27 @@ const patientName =
 const languageSelect =
     document.getElementById("languageSelect");
 
+if (languageSelect) {
+    languageSelect.value = selectedLanguage;
+}
+
+applyInterfaceTranslations();
+
+function loadPatientName() {
+    try {
+        const storedUser = JSON.parse(
+            localStorage.getItem("medikiosk_current") || "null"
+        );
+        const name = storedUser?.fullName || storedUser?.full_name;
+
+        if (name && patientName) {
+            patientName.textContent = `${t("hello")}, ${name}`;
+        }
+    } catch (error) {
+        console.warn("Unable to load stored patient name:", error);
+    }
+}
+
 
 /* =========================================================
    RED FLAG
@@ -108,6 +319,16 @@ async function startCheckIn() {
         return;
     }
 
+    const token = localStorage.getItem("medikiosk_token");
+
+    if (!token) {
+        addBotMessage("Please sign in first so your health check-in can be saved securely.");
+        setTimeout(() => {
+            window.location.href = "../Authentication/index.html";
+        }, 900);
+        return;
+    }
+
     checkInStarted = true;
     startChatBtn.disabled = true;
     startRow.style.display = "none";
@@ -120,6 +341,11 @@ async function startCheckIn() {
         });
         const data = result.data || result;
         interviewId = data.interviewId || data.id;
+
+        if (data.patientName && patientName) {
+            patientName.textContent = `${t("hello")}, ${data.patientName}`;
+        }
+
         displayQuestion(data.question);
         updateProgress();
     } catch (error) {
@@ -127,7 +353,10 @@ async function startCheckIn() {
         checkInStarted = false;
         startChatBtn.disabled = false;
         startRow.style.display = "flex";
-        addBotMessage("Sorry, I couldn't start the health interview. Please try again.");
+        addBotMessage(
+            error.message ||
+            "Sorry, I couldn't start the health interview. Please try again."
+        );
         console.error("Start interview error:", error);
     }
 }
@@ -156,6 +385,10 @@ function displayQuestion(question) {
             question.options || []
         );
 
+        if (voiceConversationActive) {
+            speakResponse(question.text);
+        }
+
 
         updateInputState();
 
@@ -177,7 +410,35 @@ function addBotMessage(
 
 
     wrapper.className =
-        "message bot-message";
+        "message-row bot-row";
+
+    const avatar =
+        document.createElement("div");
+
+    avatar.className =
+        "bot-avatar";
+
+    avatar.innerHTML =
+        '<i class="fa-solid fa-sparkles"></i>';
+
+    wrapper.appendChild(avatar);
+
+    const messageGroup =
+        document.createElement("div");
+
+    messageGroup.className =
+        "message-content";
+
+    const label =
+        document.createElement("div");
+
+    label.className =
+        "bot-label";
+
+    label.innerHTML =
+        'MedZyra AI <span>● Online</span>';
+
+    messageGroup.appendChild(label);
 
 
     const content =
@@ -185,14 +446,14 @@ function addBotMessage(
 
 
     content.className =
-        "message-content";
+        "message bot-message";
 
 
     content.innerHTML =
         escapeHTML(text);
 
 
-    wrapper.appendChild(content);
+    messageGroup.appendChild(content);
 
 
     /* -----------------------------------------------------
@@ -269,11 +530,13 @@ function addBotMessage(
         });
 
 
-        wrapper.appendChild(
+        messageGroup.appendChild(
             optionsContainer
         );
     }
 
+
+    wrapper.appendChild(messageGroup);
 
     messages.appendChild(
         wrapper
@@ -295,7 +558,24 @@ function addUserMessage(text) {
 
 
     wrapper.className =
-        "message user-message";
+        "user-row";
+
+    const messageGroup =
+        document.createElement("div");
+
+    messageGroup.className =
+        "user-message-group";
+
+    const label =
+        document.createElement("div");
+
+    label.className =
+        "user-label";
+
+    label.innerHTML =
+        'You <i class="fa-solid fa-check"></i>';
+
+    messageGroup.appendChild(label);
 
 
     const content =
@@ -303,16 +583,26 @@ function addUserMessage(text) {
 
 
     content.className =
-        "message-content";
+        "message user-message";
 
 
     content.textContent =
         text;
 
 
-    wrapper.appendChild(
-        content
-    );
+    messageGroup.appendChild(content);
+
+    const avatar =
+        document.createElement("div");
+
+    avatar.className =
+        "user-avatar";
+
+    avatar.innerHTML =
+        '<i class="fa-solid fa-user"></i>';
+
+    wrapper.appendChild(messageGroup);
+    wrapper.appendChild(avatar);
 
 
     messages.appendChild(
@@ -348,6 +638,54 @@ async function sendMessage() {
 
 
     messageInput.value = "";
+
+    if (discussionMode) {
+        addUserMessage(answer);
+
+        if (shouldEndConversation(answer)) {
+            endDiscussion();
+            return;
+        }
+
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+        voiceButton.disabled = true;
+        showTyping();
+
+        try {
+            const result = await apiRequest("/health-ai/chat", {
+                method: "POST",
+                body: JSON.stringify({
+                    message: answer,
+                    language: selectedLanguage,
+                    conversation: discussionConversation,
+                    interactionMode: discussionMode
+                })
+            });
+
+            hideTyping();
+            const data = result.data || {};
+            const responseText = data.question || data.message || data.summary || t("discussionReady");
+            discussionConversation.push(
+                { role: "user", content: answer },
+                { role: "assistant", content: responseText }
+            );
+            addBotMessage(responseText);
+
+            if (voiceConversationActive) {
+                speakResponse(responseText);
+            }
+
+            updateInputState();
+        } catch (error) {
+            hideTyping();
+            addBotMessage(t("discussionError"));
+            console.error("Discussion chat error:", error);
+            updateInputState();
+        }
+
+        return;
+    }
 
 
     await processAnswer(
@@ -467,7 +805,9 @@ async function processAnswer(answer) {
         ) {
 
             showAssessment(
-                data.assessment
+                data.assessment,
+                data.discussion,
+                data.patientName
             );
 
             return;
@@ -496,6 +836,7 @@ async function processAnswer(answer) {
 
 
         addBotMessage(
+            error.message ||
             "Sorry, something went wrong while processing your answer. Please try again."
         );
 
@@ -516,7 +857,9 @@ async function processAnswer(answer) {
 ========================================================= */
 
 function showAssessment(
-    assessment
+    assessment,
+    discussion = {},
+    returnedPatientName = ""
 ) {
 
     currentQuestion = null;
@@ -545,9 +888,13 @@ function showAssessment(
             : [];
 
 
+    if (returnedPatientName && patientName) {
+        patientName.textContent = `${t("hello")}, ${returnedPatientName}`;
+    }
+
     wrapper.innerHTML = `
 
-        <h3>🩺 Health Check-in Complete</h3>
+        <h3>🩺 ${escapeHTML(t("complete"))}</h3>
 
         <p>
             ${escapeHTML(
@@ -555,7 +902,7 @@ function showAssessment(
             )}
         </p>
 
-        <h4>Possible symptom categories</h4>
+        <h4>${escapeHTML(t("categories"))}</h4>
 
         <ul>
             ${
@@ -568,7 +915,7 @@ function showAssessment(
             }
         </ul>
 
-        <h4>Recommended healthcare professional</h4>
+        <h4>${escapeHTML(t("doctor"))}</h4>
 
         <p>
             👨‍⚕️
@@ -578,7 +925,7 @@ function showAssessment(
             )}
         </p>
 
-        <h4>Next step</h4>
+        <h4>${escapeHTML(t("nextStep"))}</h4>
 
         <p>
             ${escapeHTML(
@@ -593,6 +940,36 @@ function showAssessment(
             )}
         </small>
 
+        <div class="discussion-panel">
+            <div class="discussion-copy">
+                <span class="discussion-kicker">NEXT, WITH MEDZYRA</span>
+                <h4>${escapeHTML(
+                    selectedLanguage === "en" && discussion.prompt
+                        ? discussion.prompt
+                        : t("discussPrompt")
+                )}</h4>
+                <p>${escapeHTML(t("discussHint"))}</p>
+            </div>
+            <div class="interaction-actions" role="group" aria-label="Choose interaction mode">
+                <button type="button" class="interaction-button primary" onclick="continueDiscussion('text')">
+                    <i class="fa-regular fa-message"></i>
+                    ${escapeHTML(t("chatText"))}
+                </button>
+                <button type="button" class="interaction-button" onclick="continueDiscussion('touch')">
+                    <i class="fa-solid fa-hand-pointer"></i>
+                    ${escapeHTML(t("tapChoose"))}
+                </button>
+                <button type="button" class="interaction-button" onclick="continueDiscussion('voice')">
+                    <i class="fa-solid fa-microphone"></i>
+                    ${escapeHTML(t("useVoice"))}
+                </button>
+                <button type="button" class="interaction-button secondary" onclick="skipDiscussion()">
+                    <i class="fa-solid fa-arrow-right"></i>
+                    ${escapeHTML(t("uploadDocuments"))}
+                </button>
+            </div>
+        </div>
+
     `;
 
 
@@ -604,14 +981,85 @@ function showAssessment(
     scrollToBottom();
 
 
-    setTimeout(() => {
-        window.location.href = "../Document/documents.html";
-    }, 1500);
-
-
     updateProgress(
         true
     );
+}
+
+function continueDiscussion(mode) {
+    const prompt = document.querySelector(".discussion-panel");
+
+    if (
+        mode === "voice" &&
+        (!recognition || !window.speechSynthesis)
+    ) {
+        addBotMessage("Voice input is not supported in this browser. You can continue by text or touch.");
+        return;
+    }
+
+    if (prompt) {
+        prompt.classList.add("discussion-selected");
+    }
+
+    discussionMode = mode;
+    voiceConversationActive = mode === "voice";
+    discussionConversation = [];
+
+    currentQuestion = {
+        id: "discussion",
+        type: "text",
+        text: "What would you like to discuss?"
+    };
+
+    addBotMessage(
+        mode === "voice"
+            ? t("voiceReady")
+            : t("discussionReady")
+    );
+
+    updateInputState();
+
+    if (mode === "touch") {
+        addBotMessage(t("touchReady"));
+    }
+
+    if (voiceConversationActive) {
+        speakResponse("Voice mode is ready. Tap the microphone and ask your follow-up question.");
+    }
+}
+
+function shouldEndConversation(message) {
+    return END_CONVERSATION_PATTERNS.some(pattern =>
+        pattern.test(String(message || ""))
+    );
+}
+
+function skipDiscussion() {
+    endDiscussion("You chose to continue to document upload.");
+}
+
+function endDiscussion(message = t("goDocuments")) {
+    discussionMode = null;
+    voiceConversationActive = false;
+    currentQuestion = null;
+
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+
+    if (recognition && voiceActive) {
+        recognition.stop();
+    }
+
+    messageInput.disabled = true;
+    sendButton.disabled = true;
+    voiceButton.disabled = true;
+
+    addBotMessage(message);
+
+    setTimeout(() => {
+        window.location.href = "../Document/documents.html";
+    }, 900);
 }
 
 
@@ -765,7 +1213,7 @@ function updateProgress(
     if (stepText) {
 
         stepText.textContent =
-            `Question ${answeredQuestions + 1}`;
+            `${t("step")} ${answeredQuestions + 1}`;
     }
 
 
@@ -857,15 +1305,35 @@ if (languageSelect) {
             selectedLanguage =
                 this.value;
 
+            const interfaceLanguage =
+                selectedLanguage === "bn"
+                    ? "bengali"
+                    : selectedLanguage === "hi"
+                        ? "hindi"
+                        : selectedLanguage === "ne"
+                            ? "nepali"
+                            : "english";
+
+            localStorage.setItem(
+                "medzyraLanguage",
+                interfaceLanguage
+            );
+
+            window.dispatchEvent(
+                new CustomEvent("medzyra-language-change", {
+                    detail: interfaceLanguage
+                })
+            );
+
 
             if (!checkInStarted) {
                 return;
             }
 
 
-            addBotMessage(
-                "🌐 Language changed. The new language will be used for the next questions."
-            );
+            applyInterfaceTranslations();
+
+            addBotMessage(`🌐 ${t("languageChanged")}`);
         }
     );
 }
@@ -900,6 +1368,27 @@ if (messageInput) {
 ========================================================= */
 
 let recognition = null;
+
+function speakResponse(text) {
+    if (!voiceConversationActive || !window.speechSynthesis) {
+        return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const languageMap = {
+        en: "en-IN",
+        hi: "hi-IN",
+        bn: "bn-IN",
+        ne: "ne-NP"
+    };
+
+    const utterance = new SpeechSynthesisUtterance(String(text));
+    utterance.lang = languageMap[selectedLanguage] || "en-IN";
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+}
 
 
 if (
@@ -1187,6 +1676,8 @@ function goBack() {
 document.addEventListener(
     "DOMContentLoaded",
     () => {
+
+        loadPatientName();
 
         updateInputState();
 

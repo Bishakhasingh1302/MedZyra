@@ -93,6 +93,7 @@ function calculateAge(dob){
   return age;
 }
 function normalizeUser(user = {}){
+  const healthProfile=user.healthProfile || user.health_profile || {};
   return {
     ...user,
     id:user.id || user.userId,
@@ -102,15 +103,20 @@ function normalizeUser(user = {}){
     dob:user.dob || user.dateOfBirth || user.date_of_birth || "",
     bloodGroup:user.bloodGroup || user.blood_group || "",
     emergency:user.emergency || user.emergencyContact || user.emergency_contact || "",
-    height:user.height || "Not added",
-    weight:user.weight || "Not added",
-    allergies:user.allergies || "None",
-    chronic:user.chronic || user.chronicConditions || user.chronic_conditions || "None",
+    height:user.height || user.height_cm || healthProfile.height_cm || "Not added",
+    weight:user.weight || user.weight_kg || healthProfile.weight_kg || "Not added",
+    allergies:user.allergies || healthProfile.allergies || "None",
+    smoking:user.smoking || healthProfile.smoking || "Not added",
+    drinking:user.drinking || healthProfile.drinking || "Not added",
+    exercise:user.exercise || healthProfile.exercise || "Not added",
+    chronic:user.chronic || user.chronicConditions || user.chronic_conditions || healthProfile.chronic_conditions || "None",
     appointments:user.appointments || [],
     medicines:user.medicines || [],
     documents:user.documents || []
   };
 }
+
+currentUser = currentUser ? normalizeUser(currentUser) : null;
 function setAuthMode(mode){
   const login=mode==="login";
   $("loginForm").classList.toggle("hidden",!login);
@@ -208,6 +214,7 @@ function enterDashboard(){
 }
 function renderUser(){
   if(!currentUser)return;
+  currentUser = normalizeUser(currentUser);
   $("userNameTop").textContent=currentUser.fullName.split(" ")[0];
   $("avatar").textContent=currentUser.fullName.charAt(0).toUpperCase();
   $("healthBlood").textContent=currentUser.bloodGroup;
