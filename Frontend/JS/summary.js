@@ -702,7 +702,7 @@ function continueToDoctor() {
    LOAD AUTHORITATIVE BACKEND SUMMARY
 ========================================== */
 
-const SUMMARY_API_BASE_URL = "http://localhost:5000/api";
+const SUMMARY_API_BASE_URL = "https://medzyra-backend.onrender.com/api";
 
 function summaryToken() {
     return localStorage.getItem("medikiosk_token") || localStorage.getItem("token");

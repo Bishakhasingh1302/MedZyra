@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const API_URL = "http://localhost:5000/api";
+const API_URL = "https://medzyra-backend.onrender.com/api";
 const AUTH_ENDPOINTS = {
   sendOtp: "/auth/send-otp",
   verifyOtp: "/auth/verify-otp",
