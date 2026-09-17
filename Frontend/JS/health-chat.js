@@ -8,7 +8,7 @@
 ========================================================= */
 
 const API_URL =
-    "http://localhost:5000/api";
+    "https://medzyra-backend.onrender.com/api";
 
 
 /* =========================================================
@@ -87,7 +87,8 @@ function getToken() {
         localStorage.getItem("medzyra_access_token") ||
         localStorage.getItem("token") ||
         localStorage.getItem("authToken") ||
-        localStorage.getItem("accessToken")
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("medikiosk_token")
     );
 }
 
@@ -120,6 +121,16 @@ async function apiRequest(endpoint, options = {}) {
 
 async function startCheckIn() {
     if (checkInStarted) {
+        return;
+    }
+
+    const token = getToken();
+
+    if (!token) {
+        addBotMessage("Please sign in first so your health check-in can be saved securely.");
+        setTimeout(() => {
+            window.location.href = "../Authentication/index.html";
+        }, 900);
         return;
     }
 
@@ -373,7 +384,6 @@ async function sendMessage() {
 
 
     messageInput.value = "";
-
 
     await processAnswer(
         answer

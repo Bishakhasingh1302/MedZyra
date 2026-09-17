@@ -55,27 +55,8 @@ const role =
    Timeline
 */
 
-const timelineEvents =
-    JSON.parse(
-        localStorage.getItem(
-            "medzyraTimeline"
-        )
-    ) || [];
-
-
-const demoEventTitles = [
-    "Patient information submitted",
-    "Medical history uploaded",
-    "Prescription uploaded",
-    "Laboratory report uploaded",
-    "AI document analysis completed"
-];
-
-
-const realTimelineEvents =
-    timelineEvents.filter(
-        event => event.source === "real" || !demoEventTitles.includes(event.title)
-    );
+const timelineEvents = [];
+const realTimelineEvents = [];
 
 
 
@@ -83,12 +64,7 @@ const realTimelineEvents =
    Uploaded documents
 */
 
-const documents =
-    JSON.parse(
-        localStorage.getItem(
-            "medzyraDocuments"
-        )
-    ) || [];
+const documents = [];
 
 
 
@@ -283,6 +259,10 @@ function createOverallSummary() {
         user.fullName ||
         "The patient";
 
+
+    if (realTimelineEvents.length === 0 && documentEvents.length === 0) {
+        return "No health summary is available yet. Complete an interview or upload a medical document to begin.";
+    }
 
     let text =
         name +
@@ -717,3 +697,89 @@ function continueToDoctor() {
         "../Authentication/index.html#dashboardScreen";
 
 }
+
+/* ==========================================
+   LOAD AUTHORITATIVE BACKEND SUMMARY
+========================================== */
+
+const SUMMARY_API_BASE_URL = "https://medzyra-backend.onrender.com/api";
+
+function summaryToken() {
+    return localStorage.getItem("medikiosk_token") || localStorage.getItem("token");
+}
+
+function renderApiJourney(events) {
+    const container = document.getElementById("journeyList");
+    container.innerHTML = "";
+    if (!events.length) {
+        container.textContent = "No activity has been recorded yet.";
+        return;
+    }
+    events.forEach(event => {
+        const item = document.createElement("div");
+        item.className = "journey-item";
+        const date = new Date(event.occurredAt);
+        item.innerHTML = `<div class="journey-dot"></div><div class="journey-left"><div class="journey-icon"></div><div><div class="journey-title"></div><div class="journey-description"></div></div></div><div class="journey-time"></div>`;
+        item.querySelector(".journey-icon").textContent = event.type === "document" ? "📄" : event.type === "interview_summary" ? "✨" : "✓";
+        item.querySelector(".journey-title").textContent = event.type === "document" ? `Document uploaded: ${event.document?.file_name || "Medical document"}` : event.type === "interview_summary" ? "Interview summary completed" : "Health interview recorded";
+        item.querySelector(".journey-description").textContent = event.type === "document" ? event.document?.analysis?.summary || "Document saved to the medical record." : event.assessment?.summary || `${(event.answers || []).length} answer(s) recorded.`;
+        item.querySelector(".journey-time").textContent = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+        container.appendChild(item);
+    });
+}
+
+function renderApiDocuments(events) {
+    const container = document.getElementById("documentSummaryList");
+    const documents = events.filter(event => event.type === "document");
+    container.innerHTML = "";
+    if (!documents.length) {
+        container.textContent = "No medical documents have been uploaded.";
+        return;
+    }
+    documents.forEach(event => {
+        const row = document.createElement("div");
+        row.className = "document-row";
+        row.innerHTML = `<div class="document-left"><div class="document-file-icon">📄</div><div><div class="document-name"></div><div class="document-type"></div></div></div><div class="document-status">✓ ${event.document?.status || "Uploaded"}</div>`;
+        row.querySelector(".document-name").textContent = event.document?.file_name || "Medical document";
+        row.querySelector(".document-type").textContent = event.document?.analysis?.document_type || event.document?.file_type || "Medical document";
+        container.appendChild(row);
+    });
+}
+
+async function loadSummaryFromApi() {
+    if (!summaryToken()) return;
+    try {
+        const response = await fetch(`${SUMMARY_API_BASE_URL}/patient/summary`, {
+            headers: { Authorization: `Bearer ${summaryToken()}` }
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) return;
+        const events = payload.timeline || [];
+        const documents = events.filter(event => event.type === "document");
+        const analyses = documents.filter(event => event.document?.analysis);
+        const labs = documents.filter(event => /lab|blood|test|report/i.test(JSON.stringify(event.document?.analysis || {})));
+        const prescriptions = documents.filter(event => /prescription|medicine|medication/i.test(JSON.stringify(event.document?.analysis || {})));
+        const assessment = payload.summary?.latestAssessment;
+        document.getElementById("summaryDocuments").textContent = `${documents.length} uploaded`;
+        document.getElementById("summaryAI").textContent = `${analyses.length} completed`;
+        document.getElementById("summaryLabs").textContent = labs.length ? `${labs.length} report(s) uploaded` : "Not documented";
+        document.getElementById("summaryPrescriptions").textContent = prescriptions.length ? `${prescriptions.length} uploaded` : "Not documented";
+        const documentNames = documents
+            .map(event => event.document?.file_name)
+            .filter(Boolean);
+        const summaryText = assessment?.summary || (
+            documents.length
+                ? `Your medical record currently contains ${documents.length} uploaded document${documents.length === 1 ? "" : "s"}${documentNames.length ? `, including ${documentNames.join(", ")}` : ""}. ${analyses.length ? `${analyses.length} document${analyses.length === 1 ? " has" : "s have"} been analyzed and are ready for review.` : "Document analysis is still pending."}`
+                : "No completed interview summary or uploaded medical document is available yet."
+        );
+        document.getElementById("overallSummary").textContent = summaryText;
+        document.getElementById("summaryStatusTitle").textContent = "AI Summary Ready";
+        document.getElementById("summaryStatusText").textContent = "Based only on information saved in your MedZyra record.";
+        renderApiJourney(events);
+        renderApiDocuments(events);
+    } catch (error) {
+        console.warn("Unable to load patient summary", error);
+    }
+}
+
+loadSummaryFromApi();

@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "https://medzyra-backend.onrender.com/api";
 const fileInput = document.getElementById("fileInput");
 const browseButton = document.getElementById("browseButton");
 const dropZone = document.getElementById("dropZone");
@@ -39,6 +39,30 @@ function saveTimelineEvent(type, file) {
     localStorage.setItem("medzyraTimeline", JSON.stringify(events));
 }
 
+async function persistUploadedDocument(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const uploadResponse = await fetch(`${API_BASE_URL}/documents/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}` },
+        body: formData
+    });
+    const uploadPayload = await uploadResponse.json().catch(() => ({}));
+    if (!uploadResponse.ok || !uploadPayload.success || !uploadPayload.document?.id) {
+        throw new Error(uploadPayload.message || "Unable to save the document.");
+    }
+
+    const processResponse = await fetch(`${API_BASE_URL}/documents/${uploadPayload.document.id}/process`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token()}` }
+    });
+    const processPayload = await processResponse.json().catch(() => ({}));
+    if (!processResponse.ok || !processPayload.success) {
+        throw new Error(processPayload.message || "Document was uploaded but analysis failed.");
+    }
+    return uploadPayload.document;
+}
+
 function displayFile(file) {
     fileList.querySelector(".empty-files")?.remove();
     const item = document.createElement("div");
@@ -72,6 +96,7 @@ async function processDocument(file) {
         }
 
         const documentData = normalizeDocumentData(payload);
+        await persistUploadedDocument(file);
         setProgress(100, "Document analyzed successfully");
         showSummary(file, documentData);
         saveTimelineEvent("ai", file);
@@ -98,7 +123,6 @@ function handleFiles(files) {
         }
         uploadedFiles.push(file);
         displayFile(file);
-        saveTimelineEvent("document", file);
         processDocument(file);
     });
 }
