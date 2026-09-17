@@ -7,29 +7,13 @@
    Get timeline events from browser storage.
 */
 
-let timelineEvents =
-    JSON.parse(
-        localStorage.getItem("medzyraTimeline")
-    ) || [];
+const API_BASE_URL = "http://localhost:5000/api";
 
+function getToken() {
+    return localStorage.getItem("medikiosk_token") || localStorage.getItem("token");
+}
 
-const demoEventTitles = [
-    "Patient information submitted",
-    "Medical history uploaded",
-    "Prescription uploaded",
-    "Laboratory report uploaded",
-    "AI document analysis completed"
-];
-
-
-timelineEvents = timelineEvents.filter(
-    event => event.source === "real" || !demoEventTitles.includes(event.title)
-);
-
-localStorage.setItem(
-    "medzyraTimeline",
-    JSON.stringify(timelineEvents)
-);
+let timelineEvents = [];
 
 
 
@@ -47,6 +31,43 @@ const actionCount =
 
 const aiCount =
     document.getElementById("aiCount");
+
+function formatEvent(event) {
+    const source = event.type;
+    const item = event.document || event.assessment || event.interview || {};
+    const type = source === "document" ? "document" : source === "interview_summary" ? "ai" : "action";
+    const date = new Date(event.occurredAt);
+    return {
+        source: "api",
+        type,
+        title: source === "document"
+            ? `Document uploaded: ${item.file_name || "Medical document"}`
+            : source === "interview_summary" ? "Interview summary completed" : "Health interview started",
+        description: source === "document"
+            ? `${item.status === "analyzed" ? "Analyzed" : "Uploaded"} at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            : source === "interview_summary" ? item.summary || "Your interview assessment is ready." : `${(event.answers || []).length} interview answer(s) recorded.`,
+        icon: source === "document" ? "📄" : source === "interview_summary" ? "✨" : "✓",
+        time: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        date: date.toLocaleDateString(),
+        occurredAt: event.occurredAt
+    };
+}
+
+async function loadTimelineFromApi() {
+    if (!getToken()) return;
+    try {
+        const response = await fetch(`${API_BASE_URL}/patient/timeline`, {
+            headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) return;
+        timelineEvents = (payload.timeline || []).map(formatEvent);
+        localStorage.setItem("medzyraTimeline", JSON.stringify(timelineEvents));
+        displayTimeline();
+    } catch (error) {
+        console.warn("Unable to load patient timeline", error);
+    }
+}
 
 
 
@@ -452,3 +473,4 @@ function continuePage() {
 ===================================== */
 
 displayTimeline();
+loadTimelineFromApi();

@@ -294,7 +294,7 @@ const redFlagMessage =
     document.getElementById("redFlagMessage");
 
 async function apiRequest(path, options = {}) {
-    const token = localStorage.getItem("medikiosk_token");
+    const token = localStorage.getItem("medikiosk_token") || localStorage.getItem("token");
     const response = await fetch(`${API_URL}${path}`, {
         headers: {
             "Content-Type": "application/json",
@@ -319,7 +319,7 @@ async function startCheckIn() {
         return;
     }
 
-    const token = localStorage.getItem("medikiosk_token");
+    const token = localStorage.getItem("medikiosk_token") || localStorage.getItem("token");
 
     if (!token) {
         addBotMessage("Please sign in first so your health check-in can be saved securely.");
@@ -653,9 +653,10 @@ async function sendMessage() {
         showTyping();
 
         try {
-            const result = await apiRequest("/health-ai/chat", {
+            const result = await apiRequest("/health-ai/interview-discussion", {
                 method: "POST",
                 body: JSON.stringify({
+                    interviewId,
                     message: answer,
                     language: selectedLanguage,
                     conversation: discussionConversation,
