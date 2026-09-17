@@ -71,9 +71,9 @@ async function processDocument(file) {
             throw new Error(payload.message || "Unable to analyze the document.");
         }
 
-        const extractedText = payload.extractedText || payload.data?.extractedText || "No readable text was found.";
+        const documentData = normalizeDocumentData(payload);
         setProgress(100, "Document analyzed successfully");
-        showSummary(file, extractedText);
+        showSummary(file, documentData);
         saveTimelineEvent("ai", file);
     } catch (error) {
         setProgress(0, error.message);
@@ -103,19 +103,140 @@ function handleFiles(files) {
     });
 }
 
-function showSummary(file, extractedText) {
+function normalizeDocumentData(payload) {
+    const data = payload.data && typeof payload.data === "object" ? payload.data : payload;
+    const extractedText = String(firstValue(data.extractedText, data.extracted_text, data.text, ""));
+    const medicines = normalizeList(data.medicines || data.medications || data.medicine);
+    if (!medicines.length && firstValue(data.medicineName, data.medicine_name, data.medicationName)) {
+        medicines.push({
+            name: firstValue(data.medicineName, data.medicine_name, data.medicationName),
+            dose: firstValue(data.dosage, data.dose, data.strength),
+            time: firstValue(data.time, data.timing, data.frequency)
+        });
+    }
+    const tests = normalizeList(data.tests || data.investigations || data.labTests);
+
+    return {
+        summary: firstValue(data.summary, data.overview, data.aiSummary, ""),
+        extractedText,
+        documentType: firstValue(data.documentType, data.document_type, data.type, "Medical Document"),
+        date: firstValue(data.date, data.documentDate, data.document_date, extractDate(extractedText)),
+        medicines: medicines.length ? medicines : extractMedicines(extractedText),
+        diagnosis: firstValue(data.diagnosis, data.condition, extractDiagnosis(extractedText)),
+        tests: tests.length ? tests : extractTests(extractedText)
+    };
+}
+
+function firstValue(...values) {
+    return values.find(value => value !== undefined && value !== null && String(value).trim()) || "";
+}
+
+function normalizeList(value) {
+    if (!value) return [];
+    const values = Array.isArray(value) ? value : [value];
+    return values.map(item => {
+        if (typeof item === "string") return { name: item.trim() };
+        if (!item || typeof item !== "object") return null;
+        return {
+            name: firstValue(item.name, item.medicineName, item.medicine_name, item.medicationName, item.medication, item.test, ""),
+            dose: firstValue(item.dose, item.dosage, item.strength, ""),
+            time: firstValue(item.time, item.timing, item.frequency, "")
+        };
+    }).filter(item => item?.name);
+}
+
+function extractMedicines(text) {
+    return text.split(/\r?\n/).map(line => line.trim()).filter(line => {
+        return line && /(tablet|capsule|syrup|injection|mg\b|mcg\b|medicine|medication)/i.test(line);
+    }).map(line => ({ name: line.replace(/^[-*•\d.)\s]+/, "") }));
+}
+
+function extractTests(text) {
+    return text.split(/\r?\n/).map(line => line.trim()).filter(line => {
+        return line && /(test|investigation|blood|urine|scan|x-ray|ecg|mri|ct\b)/i.test(line);
+    }).map(line => ({ name: line.replace(/^[-*•\d.)\s]+/, "") }));
+}
+
+function extractDate(text) {
+    const match = text.match(/\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b/);
+    return match ? match[0] : "";
+}
+
+function extractDiagnosis(text) {
+    const line = text.split(/\r?\n/).find(value => /diagnosis|condition/i.test(value));
+    return line ? line.replace(/^.*?diagnosis\s*[:=-]?\s*/i, "").trim() : "";
+}
+
+function importantText(text, medicines, diagnosis, tests, date) {
+    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const importantLines = lines.filter(line => {
+        return /(medicine|medication|tablet|capsule|syrup|injection|dose|dosage|mg\b|mcg\b|take|time|morning|afternoon|evening|night|diagnosis|condition|test|investigation|blood|urine|scan|x-ray|ecg|mri|ct\b|date|follow.?up|allerg)/i.test(line);
+    });
+    const values = [...new Set(importantLines)]
+        .slice(0, 8)
+        .map(line => line.length > 180 ? `${line.slice(0, 177).trim()}...` : line);
+    if (values.length) return values.join("\n");
+
+    const detected = [
+        date && `Date: ${date}`,
+        diagnosis && `Diagnosis: ${diagnosis}`,
+        medicines.length && `Medicines: ${formatList(medicines)}`,
+        tests.length && `Tests: ${formatList(tests)}`
+    ].filter(Boolean);
+    return detected.join("\n") || "No important medical details were detected.";
+}
+
+function shortSummary(summary, medicines, diagnosis, tests, date) {
+    const suppliedSummary = String(summary || "").replace(/\s+/g, " ").trim();
+    if (suppliedSummary) {
+        const sentences = suppliedSummary.match(/[^.!?]+[.!?]+/g) || [suppliedSummary];
+        return sentences.slice(0, 2).join(" ").slice(0, 280).trim();
+    }
+
+    const parts = [];
+    if (medicines.length) parts.push(`Medicine: ${formatList(medicines)}.`);
+    if (diagnosis) parts.push(`Diagnosis: ${diagnosis}.`);
+    if (tests.length) parts.push(`Tests: ${formatList(tests)}.`);
+    if (date) parts.push(`Date: ${date}.`);
+    return parts.join(" ") || "No important medical details were detected in this document.";
+}
+
+function formatList(items) {
+    return items.map(item => [item.name, item.dose, item.time].filter(Boolean).join(" - ")).join("; ");
+}
+
+function showSummary(file, documentData) {
     summaryEmpty.style.display = "none";
     processing.style.display = "none";
     summaryResult.style.display = "block";
     bottomSummary.style.display = "block";
     document.getElementById("documentName").textContent = file.name;
-    document.getElementById("summaryText").textContent = extractedText;
-    document.getElementById("extractedText").textContent = extractedText;
-    document.getElementById("bottomSummaryText").textContent = extractedText;
-    document.getElementById("documentType").textContent = "Medical Image";
-    document.getElementById("diagnosis").textContent = "See extracted text";
-    document.getElementById("medication").textContent = "See extracted text";
-    document.getElementById("tests").textContent = "See extracted text";
+    const medicineText = formatList(documentData.medicines);
+    const testText = formatList(documentData.tests);
+    const overview = shortSummary(
+        documentData.summary,
+        documentData.medicines,
+        documentData.diagnosis,
+        documentData.tests,
+        documentData.date
+    );
+    const importantDetails = importantText(
+        documentData.extractedText,
+        documentData.medicines,
+        documentData.diagnosis,
+        documentData.tests,
+        documentData.date
+    );
+    document.getElementById("summaryText").textContent = overview;
+    document.getElementById("extractedText").textContent = importantDetails;
+    document.getElementById("bottomSummaryText").textContent = overview;
+    document.getElementById("documentType").textContent = documentData.documentType;
+    document.getElementById("documentDate").textContent = documentData.date || "Not detected";
+    document.getElementById("medicineInfo").textContent = medicineText || "Not detected";
+    document.getElementById("testInfo").textContent = testText || "Not detected";
+    document.getElementById("diagnosis").textContent = documentData.diagnosis || "Not detected";
+    document.getElementById("medication").textContent = medicineText || "Not detected";
+    document.getElementById("tests").textContent = testText || "Not detected";
 }
 
 function formatFileSize(bytes) {
