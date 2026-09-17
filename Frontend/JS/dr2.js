@@ -1,6 +1,11 @@
 const doctorForm = document.getElementById("doctorForm");
 const successBox = document.getElementById("successBox");
 
+const localizedMessage = message => {
+    const language = localStorage.getItem("medzyraLanguage") || "english";
+    return window.MedZyraI18n?.translations[language]?.[message] || message;
+};
+
 
 // ================= PASSWORD TOGGLE =================
 
@@ -87,22 +92,22 @@ doctorForm.addEventListener("submit", function(event) {
     // ================= VALIDATION =================
 
     if (!/^[0-9]{10}$/.test(phone)) {
-        alert("Please enter a valid 10-digit phone number.");
+        alert(localizedMessage("Please enter a valid 10-digit phone number."));
         return;
     }
 
     if (password.value.length < 6) {
-        alert("Password must contain at least 6 characters.");
+        alert(localizedMessage("Password must contain at least 6 characters."));
         return;
     }
 
     if (password.value !== confirmPassword) {
-        alert("Passwords do not match.");
+        alert(localizedMessage("Passwords do not match."));
         return;
     }
 
     if (!terms) {
-        alert("Please accept the terms and declaration.");
+        alert(localizedMessage("Please accept the terms and declaration."));
         return;
     }
 
@@ -163,8 +168,8 @@ document.getElementById("doctorLogin")
 
         event.preventDefault();
 
-        alert(
+        alert(localizedMessage(
             "Doctor Login will be connected to the MedZyra Doctor Dashboard."
-        );
+        ));
 
     });

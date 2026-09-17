@@ -87,7 +87,7 @@ roleCards.forEach(card => {
                 */
 
                 window.location.href =
-                    "../Authentication/index.html?from=role";
+                    "../dr dashbord/dr.html";
 
             }
 
