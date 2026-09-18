@@ -161,15 +161,4 @@ doctorForm.addEventListener("submit", function(event) {
 });
 
 
-// ================= LOGIN PLACEHOLDER =================
-
-document.getElementById("doctorLogin")
-    .addEventListener("click", function(event) {
-
-        event.preventDefault();
-
-        alert(localizedMessage(
-            "Doctor Login will be connected to the MedZyra Doctor Dashboard."
-        ));
-
-    });
+// The doctor portal currently uses the dashboard as its available sign-in destination.
